@@ -25,18 +25,7 @@ go.work.sum
 .env
 
 # Build output and runtime files
-build/GORO-Patcher
-build/GORO-Patcher.exe
-build/hashfile
-build/hashfile.exe
-build/goro-config.json
-build/goro-patch.json
-build/data.grf
-build/data.grf.bak
-build/data.grf.patching
-build/patch_*.grf
-build/patch_*.zip
-build/public/
+build/*
 
 # Internal
 AGENTS.md
