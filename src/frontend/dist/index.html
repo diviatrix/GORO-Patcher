@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GORO Patcher</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div id="app">
+        <div id="titlebar">
+            <span id="titlebar-text">GORO Patcher</span>
+            <div id="titlebar-buttons">
+                <button id="btn-settings" class="titlebar-btn" aria-label="Settings">&#9881;</button>
+                <button id="btn-minimize" class="titlebar-btn" aria-label="Minimize">&#8722;</button>
+                <button id="btn-close" class="titlebar-btn" aria-label="Close">&times;</button>
+            </div>
+        </div>
+
+        <div id="content">
+            <div id="status-section">
+                <div id="status">Ready</div>
+                <div id="current-file"></div>
+            </div>
+
+            <div id="progress-section">
+                <div id="progress-container">
+                    <div id="progress-bar"></div>
+                </div>
+                <div id="progress-info">
+                    <span id="percent">0%</span>
+                    <span id="speed"></span>
+                </div>
+            </div>
+
+            <div id="buttons">
+                <button id="btn-start">Check for Updates</button>
+                <button id="btn-launch" disabled>Launch Game</button>
+            </div>
+
+            <div id="error-section" class="hidden">
+                <div id="error-icon">!</div>
+                <div id="error-message"></div>
+                <button id="btn-retry" class="hidden">Retry</button>
+            </div>
+
+            <div id="news-section">
+                <iframe id="news-frame" sandbox="allow-same-origin" loading="lazy"></iframe>
+            </div>
+
+            <div id="settings-section" class="hidden">
+                <div id="settings-panel">
+                    <h3>Settings</h3>
+                    <div id="settings-form">
+                        <label>
+                            <span>Manifest URL</span>
+                            <input type="text" id="input-manifest-url" placeholder="https://example.com/plist.json">
+                        </label>
+                        <label>
+                            <span>Exe Name</span>
+                            <input type="text" id="input-exe-name" placeholder="ragexe.exe">
+                        </label>
+                    </div>
+                    <div id="settings-buttons">
+                        <button id="btn-settings-save">Save</button>
+                        <button id="btn-settings-cancel">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/wails/runtime.js"></script>
+    <script type="module" src="./main.js"></script>
+</body>
+</html>

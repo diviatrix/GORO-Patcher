@@ -1,0 +1,21 @@
+{
+  "patch_base_url": "/home/zero/repo/GORO-Patcher/example/data/",
+  "patches": [
+    {
+      "id": 1,
+      "name": "patch_0.grf",
+      "hash": "a2ac70ab8dff9e89",
+      "size": 2043,
+      "type": "grf",
+      "target": "server.grf"
+    },
+    {
+      "id": 2,
+      "name": "patch_1.zip",
+      "hash": "45694d77d7281b59",
+      "size": 539,
+      "type": "grf",
+      "target": "data.grf"
+    }
+  ]
+}

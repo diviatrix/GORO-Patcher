@@ -1,0 +1,13 @@
+{
+  "patch_base_url": "http://localhost:8080/data/",
+  "patches": [
+    {
+      "id": 1,
+      "name": "patch_0.grf",
+      "hash": "GENERATED_HASH",
+      "size": 12345,
+      "type": "grf",
+      "target": "YOUR_GRF_FILE.grf"
+    }
+  ]
+}

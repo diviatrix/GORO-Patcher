@@ -1,0 +1,24 @@
+version: '3'
+
+includes:
+  common: ./build/Taskfile.yml
+
+vars:
+  APP_NAME: "GORO-Patcher"
+  BIN_DIR: "bin"
+
+tasks:
+  build:
+    summary: Builds the application
+    cmds:
+      - task: common:build
+
+  dev:
+    summary: Runs the application in development mode
+    cmds:
+      - wails3 dev -config ./build/config.yml
+
+  run:
+    summary: Runs the application
+    cmds:
+      - ./bin/GORO-Patcher

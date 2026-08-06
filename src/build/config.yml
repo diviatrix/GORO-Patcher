@@ -1,0 +1,31 @@
+info:
+  productName: "GORO-Patcher"
+  productIdentifier: "com.diviatrix.goro-patcher"
+  productVersion: "0.0.1"
+  companyName: "Diviatrix"
+  productDescription: "Ragnarok Online GRF Patcher"
+
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - node_modules
+      - frontend
+      - bin
+    file:
+      - .DS_Store
+      - .gitignore
+      - .gitkeep
+    watched_extension:
+      - "*.go"
+    git_ignore: true
+  executes:
+    - cmd: go mod tidy
+      type: blocking
+    - cmd: go build -o bin/goro-patcher .
+      type: blocking
+    - cmd: bin/goro-patcher
+      type: primary

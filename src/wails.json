@@ -1,0 +1,12 @@
+{
+  "name": "GORO-Patcher",
+  "outputfilename": "GORO-Patcher",
+  "frontend": {
+    "dir": "./frontend",
+    "install": "",
+    "build": "",
+    "dev": "",
+    "devServerUrl": ""
+  },
+  "loglevel": "Warning"
+}
