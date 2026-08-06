@@ -28,7 +28,4 @@ Cross-platform Ragnarok Online patcher. Merges GRF files and extracts raw patche
 - [Changelog](doc/CHANGELOG.md) — version history
 
 ## License
-
 See [LICENSE](LICENSE).
-=======
-Ragnarok Online modern GRF patcher with GO and Wails3.
