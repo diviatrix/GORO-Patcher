@@ -13,8 +13,8 @@ Cross-platform Ragnarok Online patcher. Merges GRF files and extracts raw patche
 
 ## Quick Start
 
-1. Build: `./build.sh linux` or `./build.sh windows`
-2. Copy binary to build folder
+1. Build: `./scripts/build.sh linux` or `./scripts/build.sh windows`
+2. Binaries output to `build/` — copy `build/` to your server
 3. Create `goro-config.json` (see [User Guide](doc/USER_GUIDE.md))
 4. Run
 
