@@ -1,6 +1,4 @@
 # GORO-Patcher
-<<<<<<< HEAD
-
 Cross-platform Ragnarok Online patcher. Merges GRF files and extracts raw patches.
 
 ## Features
@@ -34,4 +32,3 @@ Cross-platform Ragnarok Online patcher. Merges GRF files and extracts raw patche
 See [LICENSE](LICENSE).
 =======
 Ragnarok Online modern GRF patcher with GO and Wails3.
->>>>>>> e95e2724688887a40ed5ea475aa933cbc77dc0c9
