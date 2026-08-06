@@ -29,11 +29,7 @@
 ### Linux
 
 ```bash
-# Bash
 ./scripts/build.sh linux
-
-# Or via Makefile
-make build
 ```
 
 ### Windows (native, from Windows)
@@ -54,8 +50,6 @@ Requires Go, Wails CLI, and a C compiler (MinGW or MSVC) in PATH.
 
 ```bash
 ./scripts/build.sh all
-# or
-make build-all
 ```
 
 ## Build Script Options
@@ -94,8 +88,8 @@ cd src && wails3 dev
 ## Testing
 
 ```bash
-make test
-make lint
+cd src && go test ./...
+cd src && go vet ./...
 ```
 
 ## Project Structure
@@ -125,5 +119,4 @@ GORO-Patcher/
 │       ├── plist.json.example
 │       └── data/           # Place patches here
 ├── doc/                    # Documentation
-└── Makefile                # Build shortcuts
 ```

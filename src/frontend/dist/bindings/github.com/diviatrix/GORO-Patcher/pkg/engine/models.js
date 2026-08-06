@@ -6,48 +6,6 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "/wails/runtime.js";
 
-export class CompleteEvent {
-    /**
-     * Creates a new CompleteEvent instance.
-     * @param {Partial<CompleteEvent>} [$$source = {}] - The source object to create the CompleteEvent.
-     */
-    constructor($$source = {}) {
-        if (!("patchCount" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["patchCount"] = 0;
-        }
-        if (!("newVersion" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["newVersion"] = 0;
-        }
-        if (!("readyToLaunch" in $$source)) {
-            /**
-             * @member
-             * @type {boolean}
-             */
-            this["readyToLaunch"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new CompleteEvent instance from a string or object.
-     * @param {any} [$$source = {}]
-     * @returns {CompleteEvent}
-     */
-    static createFrom($$source = {}) {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new CompleteEvent(/** @type {Partial<CompleteEvent>} */($$parsedSource));
-    }
-}
-
 export class ErrorEvent {
     /**
      * Creates a new ErrorEvent instance.

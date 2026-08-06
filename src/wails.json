@@ -2,7 +2,7 @@
   "name": "GORO-Patcher",
   "outputfilename": "GORO-Patcher",
   "frontend": {
-    "dir": "./frontend",
+    "dir": "./frontend/dist",
     "install": "",
     "build": "",
     "dev": "",

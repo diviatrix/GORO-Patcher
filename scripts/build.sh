@@ -139,14 +139,7 @@ clean() {
 
 generate_bindings() {
     log "Generating TypeScript bindings..."
-    cd "$SRC_DIR" && $(find_wails) generate bindings -b
-    cp -r "$SRC_DIR/frontend/bindings" "$SRC_DIR/frontend/dist/"
-}
-
-copy_frontend() {
-    log "Copying frontend files..."
-    cp "$SRC_DIR/frontend/src/main.js" "$SRC_DIR/frontend/dist/"
-    cp -r "$SRC_DIR/frontend/bindings" "$SRC_DIR/frontend/dist/"
+    cd "$SRC_DIR" && $(find_wails) generate bindings -b -d frontend/dist/bindings
 }
 
 build_linux() {
@@ -203,7 +196,6 @@ copy_examples() {
 log "GORO-Patcher build script (host: $HOST_OS)"
 
 $CLEAN && clean
-copy_frontend
 $REGENERATE && generate_bindings
 
 for target in $(resolve_targets); do

@@ -16,15 +16,10 @@ if "%1"=="-c" (
     shift
 )
 
-echo [build] Copying frontend...
-copy /y "%SRC_DIR%\frontend\src\main.js" "%SRC_DIR%\frontend\dist\" >nul
-xcopy /s /e /y "%SRC_DIR%\frontend\bindings" "%SRC_DIR%\frontend\dist\bindings\" >nul
-
 if "%1"=="-f" (
     echo [build] Generating bindings...
     cd /d "%SRC_DIR%"
-    call wails3 generate bindings -b
-    xcopy /s /e /y "%SRC_DIR%\frontend\bindings" "%SRC_DIR%\frontend\dist\bindings\" >nul
+    call wails3 generate bindings -b -d frontend/dist/bindings
     shift
 )
 

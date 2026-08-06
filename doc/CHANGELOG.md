@@ -34,4 +34,3 @@ Initial release of GORO-Patcher.
 - Build output to `build/` directory
 - Documentation in `doc/`
 - Build script `build.sh` for Linux and Windows
-- Makefile for common tasks (`make build`, `make test`, `make lint`)

@@ -25,14 +25,6 @@ export function CancelDownload() {
 }
 
 /**
- * @param {engine$0.CompleteEvent} evt
- * @returns {$CancellablePromise<void>}
- */
-export function EmitComplete(evt) {
-    return $Call.ByID(2605979321, evt);
-}
-
-/**
  * @param {engine$0.ErrorEvent} evt
  * @returns {$CancellablePromise<void>}
  */
