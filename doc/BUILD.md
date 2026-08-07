@@ -105,7 +105,8 @@ GORO-Patcher/
 │   └── cmd/hashfile/       # Hash tool
 ├── scripts/                # Build scripts
 │   ├── build.sh            # Linux / cross-compile
-│   └── build.bat           # Windows native
+│   ├── build.bat           # Windows native
+│   └── gen-api-doc.sh      # API doc generator (runs on build)
 ├── example/                # Example configs + test data
 │   ├── plist.json          # Test manifest
 │   ├── plist.json.example  # Template for new servers

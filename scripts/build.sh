@@ -140,6 +140,8 @@ clean() {
 generate_bindings() {
     log "Generating TypeScript bindings..."
     cd "$SRC_DIR" && $(find_wails) generate bindings -b -d frontend/dist/bindings
+    log "Generating API docs..."
+    "$SCRIPT_DIR/gen-api-doc.sh"
 }
 
 build_linux() {
