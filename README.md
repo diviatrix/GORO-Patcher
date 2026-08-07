@@ -2,8 +2,8 @@
 
 Cross-platform Ragnarok Online patcher. Merges GRF files and extracts raw patches.
 
-[![Patcher UI](doc/img/patcher.png)](doc/img/patcher.png)
-[![Settings](doc/img/settings.png)](doc/img/settings.png)
+[![Patcher UI](doc/img/patcher.jpg)](doc/img/patcher.jpg)
+[![Settings](doc/img/settings.jpg)](doc/img/settings.jpg)
 
 ## Features
 
