@@ -194,23 +194,105 @@ If patcher crashes or power is lost during patching, just restart. Recovery is a
 
 ## Local Testing
 
-Use `file://` URLs and absolute paths:
+Test patches locally before deploying to a remote server. Uses `file://` URLs and absolute paths.
+
+### Setup
+
+Create a folder structure:
+
+```
+~/test-patches/
+├── plist.json
+├── patch_0.grf
+└── data/
+    └── patch_1.zip
+```
+
+### Step 1: Create a test patch
+
+Use the test GRF from `example/data/patch_0.grf` or create your own.
+
+### Step 2: Calculate hash
+
+```bash
+cd ~/test-patches
+/path/to/build/hashfile patch_0.grf
+# Output: a899ed08439de698  200627214  patch_0.grf
+```
+
+### Step 3: Create manifest
+
+`~/test-patches/plist.json`:
 
 ```json
-// goro-config.json
 {
-  "manifest_url": "file:///home/you/patches/plist.json",
+  "patch_base_url": "file:///home/you/test-patches/data/",
+  "patches": [
+    {
+      "id": 1,
+      "name": "patch_0.grf",
+      "hash": "a899ed08439de698",
+      "size": 200627214,
+      "type": "grf",
+      "target": "sdata.grf"
+    }
+  ]
+}
+```
+
+`patch_base_url` uses `file://` protocol. Patches referenced from `data/` subfolder.
+
+### Step 4: Configure patcher
+
+`goro-config.json` (next to patcher binary):
+
+```json
+{
+  "manifest_url": "file:///home/you/test-patches/plist.json",
   "exe_name": "your-client.exe"
 }
 ```
 
+### Step 5: Run
+
+```bash
+cd /path/to/build
+./GORO-Patcher
+```
+
+### Multiple patches example
+
 ```json
-// plist.json
 {
-  "patch_base_url": "/home/you/patches/data/",
-  "patches": [...]
+  "patch_base_url": "file:///home/you/test-patches/data/",
+  "patches": [
+    {
+      "id": 1,
+      "name": "patch_0.grf",
+      "hash": "a899ed08439de698",
+      "size": 200627214,
+      "type": "grf",
+      "target": "sdata.grf"
+    },
+    {
+      "id": 2,
+      "name": "patch_1.zip",
+      "hash": "ca7c90486d2f7a42",
+      "size": 542,
+      "type": "raw",
+      "target": "System/itemInfo.lub"
+    }
+  ]
 }
 ```
+
+### Notes
+
+- `patch_base_url` must end with `/`
+- Paths are absolute — `file:///home/you/...` (three slashes)
+- On Windows: `file:///C:/Users/you/test-patches/data/`
+- Each patch is applied in order by `id`
+- First run applies all patches; subsequent runs skip already-applied ones
 
 ## Running under Wine/Proton
 

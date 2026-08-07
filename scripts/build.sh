@@ -179,7 +179,7 @@ build_windows() {
         # wails3 build doesn't respect GOOS, so we build manually
         CGO_ENABLED=1 GOOS=windows GOARCH=amd64 \
             CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ \
-            go build -o "$OUT_DIR/GORO-Patcher.exe" .
+            go build -ldflags -H=windowsgui -o "$OUT_DIR/GORO-Patcher.exe" .
     fi
 
     log "Windows: $OUT_DIR/GORO-Patcher.exe, $OUT_DIR/hashfile.exe"
