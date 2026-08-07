@@ -1,5 +1,9 @@
 # GORO-Patcher
+
 Cross-platform Ragnarok Online patcher. Merges GRF files and extracts raw patches.
+
+[![Patcher UI](doc/img/patcher.png)](doc/img/patcher.png)
+[![Settings](doc/img/settings.png)](doc/img/settings.png)
 
 ## Features
 
@@ -9,6 +13,7 @@ Cross-platform Ragnarok Online patcher. Merges GRF files and extracts raw patche
 - XXHash64 verification
 - Crash-safe atomic GRF writes
 - Auto-check on start
+- Patch integrity validation + Repair
 - Linux and Windows builds
 
 ## Quick Start
@@ -21,6 +26,7 @@ Cross-platform Ragnarok Online patcher. Merges GRF files and extracts raw patche
 ## Documentation
 
 - **[User Guide](doc/USER_GUIDE.md)** — setup, configuration, patching workflow (admins + players)
+- **[API Reference](doc/API.md)** — JavaScript API for custom patcher UIs
 - [Architecture](doc/ARCHITECTURE.md) — how the code works, design decisions
 - [Build Guide](doc/BUILD.md) — prerequisites, build commands
 - [Patch Format](doc/PATCH_FORMAT.md) — manifest and patch types

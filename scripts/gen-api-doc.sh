@@ -26,6 +26,45 @@ import { App } from './bindings/github.com/diviatrix/GORO-Patcher/index.js';
 
 Methods return `CancellablePromise<T>` — use `await` to get the result.
 
+## Typical Flow
+
+### Normal update check
+
+```js
+// 1. Start checking for updates
+await App.StartCheck();
+
+// 2. Poll progress until complete
+setInterval(async () => {
+    const p = await App.GetProgress();
+    updateUI(p);
+    if (p.totalPercent >= 100) {
+        // Done — game ready to launch
+    }
+}, 100);
+```
+
+### Repair flow
+
+```js
+// 1. After StartCheck() completes, check if repair is needed
+const needsRepair = await App.NeedsRepair();
+
+if (needsRepair) {
+    // 2. Start repair — redownloads from first mismatching patch
+    await App.StartRepair();
+}
+```
+
+### Status values to watch for
+
+| Status | Meaning |
+|--------|---------|
+| `"Ready (patch N)"` | All patches applied, ready to play |
+| `"Up to date (patch N)"` | No new patches |
+| `"Patch N corrupted — Repair needed"` | Integrity mismatch, call `StartRepair()` |
+| `"Error: ..."` | Something failed |
+
 ## Data Models
 
 ### ProgressInfo
