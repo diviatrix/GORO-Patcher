@@ -456,8 +456,33 @@ font-size: 12px;
 }
 
 #btn-settings-cancel:hover {
-border-color: var(--ro-border-gold);
-color: var(--ro-gold);
+    border-color: var(--ro-border-gold);
+    color: var(--ro-gold);
+}
+
+#btn-repair-settings {
+    background: linear-gradient(180deg, #8b0000 0%, #5d0000 100%);
+    color: var(--ro-parchment);
+    border-color: var(--ro-error-light);
+    font-family: 'MedievalSharp', cursive;
+    padding: 6px 16px;
+    font-size: 12px;
+}
+
+#btn-repair-settings:hover {
+    background: linear-gradient(180deg, #a52a2a 0%, #8b0000 100%);
+    box-shadow: 0 0 8px rgba(211, 47, 47, 0.4);
+}
+
+#btn-start.repair {
+    background: linear-gradient(180deg, #8b0000 0%, #5d0000 100%);
+    color: var(--ro-parchment);
+    border-color: var(--ro-error-light);
+}
+
+#btn-start.repair:hover:not(:disabled) {
+    background: linear-gradient(180deg, #a52a2a 0%, #8b0000 100%);
+    box-shadow: 0 0 10px rgba(211, 47, 47, 0.4);
 }
 
 /* Utilities */

@@ -18,12 +18,14 @@ Initial release of GORO-Patcher.
 - **Auto-check on start** — patcher checks for updates automatically on launch
 - **Cross-platform builds** — `scripts/build.sh` (Linux/cross-compile) and `scripts/build.bat` (native Windows)
 - **Hash tool** — `hashfile` command for generating XXHash64 hashes for manifest
+- **Patch validation** — patcher validates applied patches against manifest on start
+- **Repair** — redownload and reapply from first mismatching patch when corruption detected
 
 ### Technical
 
 - **Stack**: Go + Wails v3 + vanilla HTML/CSS/JS
 - **GRF format**: 46-byte header, `FileTableOffset` relative to header end (SEEK_CUR), data blocks before file table
-- **Version tracking**: patch ID = version, stored in `goro-patch.json`, no separate version field in manifest
+- **Version tracking**: patch ID = version, stored in `goro-patch.json` with patch metadata, no separate version field in manifest
 - **Config**: `goro-config.json` with `manifest_url` and `exe_name`
 - **Manifest**: `plist.json` with `patch_base_url` and patches array
 - **File encoding**: EUC-KR filenames decoded to UTF-8 via `golang.org/x/text/encoding/korean`

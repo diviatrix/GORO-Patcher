@@ -182,7 +182,7 @@ Patcher compares its own hash and updates if different.
 1. Change window title in `src/main.go`
 2. Edit styles in `src/frontend/style.css`
 3. Modify layout in `src/frontend/index.html`
-4. Rebuild: `./build.sh`
+4. Rebuild: `./scripts/build.sh`
 
 ## Crash Recovery
 
@@ -192,9 +192,25 @@ If patcher crashes or power is lost during patching, just restart. Recovery is a
 - Interrupted merge → original restored from backup
 - Corrupt file → restored from backup
 
+## Repair
+
+If patch files become corrupted or the manifest changes, the patcher detects mismatches on start and shows a **Repair** button. Repair redownloads and reapplies patches from the first mismatching one onward.
+
+**When repair triggers:**
+- Patch file hash doesn't match manifest
+- Patch file size doesn't match manifest
+- Applied patch no longer exists in manifest
+
+**How to use:**
+- **Main UI** — click "Repair" (appears instead of "Check for Updates" when mismatch detected)
+- **Settings** — click "Repair Patches"
+
+The patcher tracks applied patch metadata in `goro-patch.json`. See [PATCH_FORMAT.md](PATCH_FORMAT.md) for the file format.
+
 ## Local Testing
 
-Test patches locally before deploying to a remote server. Uses `file://` URLs and absolute paths.
+Test patches locally before deploying to a remote server. 
+To speed up testing, use local `file://` URLs and absolute paths.
 
 ### Setup
 
@@ -203,19 +219,20 @@ Create a folder structure:
 ```
 ~/test-patches/
 ├── plist.json
-├── patch_0.grf
 └── data/
+    ├── patch_0.grf
     └── patch_1.zip
 ```
 
 ### Step 1: Create a test patch
 
-Use the test GRF from `example/data/patch_0.grf` or create your own.
+Prepare your GRF or ZIP file and place it in `~/test-patches/data/`.
+You can use test GRF from `example/data/patch_0.grf` or create your own.
 
 ### Step 2: Calculate hash
 
 ```bash
-cd ~/test-patches
+cd ~/test-patches/data/
 /path/to/build/hashfile patch_0.grf
 # Output: a899ed08439de698  200627214  patch_0.grf
 ```
@@ -224,23 +241,32 @@ cd ~/test-patches
 
 `~/test-patches/plist.json`:
 
+`patch_base_url` can use `file://` `http://` and `https://` protocols. 
+Patches referenced from `data/` subfolder.
+
 ```json
 {
   "patch_base_url": "file:///home/you/test-patches/data/",
   "patches": [
     {
-      "id": 1,
+      "id": 0,
       "name": "patch_0.grf",
-      "hash": "a899ed08439de698",
-      "size": 200627214,
+      "hash": "a2ac70ab8dff9e89",
+      "size": 2043,
       "type": "grf",
-      "target": "sdata.grf"
+      "target": "server.grf"
+    },
+    {
+      "id": 1,
+      "name": "patch_1.zip",
+      "hash": "45694d77d7281b59",
+      "size": 539,
+      "type": "raw",
+      "target": "server.grf"
     }
   ]
 }
 ```
-
-`patch_base_url` uses `file://` protocol. Patches referenced from `data/` subfolder.
 
 ### Step 4: Configure patcher
 
@@ -258,32 +284,6 @@ cd ~/test-patches
 ```bash
 cd /path/to/build
 ./GORO-Patcher
-```
-
-### Multiple patches example
-
-```json
-{
-  "patch_base_url": "file:///home/you/test-patches/data/",
-  "patches": [
-    {
-      "id": 1,
-      "name": "patch_0.grf",
-      "hash": "a899ed08439de698",
-      "size": 200627214,
-      "type": "grf",
-      "target": "sdata.grf"
-    },
-    {
-      "id": 2,
-      "name": "patch_1.zip",
-      "hash": "ca7c90486d2f7a42",
-      "size": 542,
-      "type": "raw",
-      "target": "System/itemInfo.lub"
-    }
-  ]
-}
 ```
 
 ### Notes
@@ -371,6 +371,7 @@ https://go.microsoft.com/fwlink/p/?LinkId=2124703
 |---------|----------|
 | "Hash mismatch" | Regenerate hash with `hashfile`, update `plist.json` |
 | Stays at "Starting..." | Check `manifest_url` is accessible |
+| "Repair needed" shown | Click Repair — patch files don't match manifest |
 | Files not merging | Ensure `type` is `"grf"` and `target` matches your GRF |
 | Crashes during merge | Restart — recovery restores automatically |
 | Game won't launch | Check `exe_name` matches your executable |

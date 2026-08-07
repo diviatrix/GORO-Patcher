@@ -85,6 +85,13 @@ export function LaunchGame() {
 }
 
 /**
+ * @returns {$CancellablePromise<boolean>}
+ */
+export function NeedsRepair() {
+    return $Call.ByID(698934495);
+}
+
+/**
  * @param {application$0.App | null} app
  * @returns {$CancellablePromise<void>}
  */
@@ -113,6 +120,13 @@ export function SetManifestURL(url) {
  */
 export function StartCheck() {
     return $Call.ByID(1964688857);
+}
+
+/**
+ * @returns {$CancellablePromise<void>}
+ */
+export function StartRepair() {
+    return $Call.ByID(1201350782);
 }
 
 // Private type creation functions

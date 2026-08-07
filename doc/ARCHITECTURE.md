@@ -4,32 +4,40 @@
 
 ```
 src/
-├── app.go              # App struct, bound methods, patch pipeline
-├── main.go             # Wails entry point, window setup
+├── app.go                  # App struct, bound methods, patch pipeline
+├── main.go                 # Wails entry point, window setup
 ├── go.mod
+├── go.sum
+├── wails.json              # Wails config (frontend.dir, etc.)
+├── Taskfile.yml            # Wails build tasks
+├── cmd/
+│   └── hashfile/           # CLI hash tool
 ├── frontend/
-│   ├── index.html      # UI structure
-│   ├── style.css       # Styles
-│   ├── src/main.js     # UI logic (polling, buttons, events)
-│   └── dist/           # Built frontend (embedded in binary)
+│   ├── dist/               # Frontend (embedded in binary)
+│   │   ├── index.html      # UI structure
+│   │   ├── style.css       # RO-themed styles
+│   │   ├── main.js         # UI logic (polling, buttons)
+│   │   └── bindings/       # Generated TypeScript bindings
 └── pkg/
     ├── engine/
-    │   ├── engine.go       # State machine, event emitter interface
-    │   ├── state.go        # State enum + transitions
-    │   ├── manifest.go     # plist.json parser, patch queue builder
-    │   ├── config.go       # goro-config.json read/write
-    │   ├── localstate.go   # goro-patch.json (version tracking)
-    │   ├── launcher.go     # Game process launch
-    │   └── rawpatcher.go   # Raw zip extraction + backup
+    │   ├── engine.go           # State machine, event emitter interface
+    │   ├── state.go            # State enum + transitions
+    │   ├── manifest.go         # plist.json parser, patch queue builder
+    │   ├── config.go           # goro-config.json read/write
+    │   ├── localstate.go       # goro-patch.json (patch tracking + validation)
+    │   ├── launcher.go         # Game process launch
+    │   ├── launcher_linux.go   # Linux launch implementation
+    │   ├── launcher_windows.go # Windows launch implementation
+    │   └── rawpatcher.go       # Raw zip extraction + backup
     ├── grf/
-    │   ├── grf.go          # GRF read/write/save (46-byte header)
-    │   ├── filetable.go    # FileEntry struct
-    │   └── patcher.go      # GRF merge + zip→GRF
+    │   ├── grf.go              # GRF read/write/save (46-byte header)
+    │   ├── filetable.go        # FileEntry struct
+    │   └── patcher.go          # GRF merge + zip→GRF
     ├── downloader/
-    │   ├── downloader.go   # HTTP client with resume
-    │   └── hash.go         # XXHash64 verification
-    ├── detector/           # Process detection
-    └── updater/            # Self-update
+    │   ├── downloader.go       # HTTP client with resume
+    │   └── hash.go             # XXHash64 verification
+    ├── detector/               # Process detection
+    └── updater/                # Self-update
 ```
 
 ## Component Interaction
@@ -38,7 +46,7 @@ src/
 Frontend (main.js)
     │
     │  GetProgress() polling every 100ms
-    │  StartCheck(), LaunchGame(), etc.
+    │  StartCheck(), StartRepair(), NeedsRepair(), LaunchGame(), etc.
     ▼
 App (app.go)
     │
@@ -104,11 +112,22 @@ Hash verify failures trigger re-download: delete the patch file, download again,
 
 There is no separate `version` field in the manifest. The version IS the highest patch ID.
 
-- `goro-patch.json` stores the last applied patch ID
+- `goro-patch.json` stores metadata for each applied patch (id, name, hash, size)
+- `LocalVersion()` returns the highest ID from applied patches
 - `BuildQueue()` returns patches where `id > localVersion`
-- After applying patch N, writes N to `goro-patch.json`
+- After applying patch N, appends patch metadata to `goro-patch.json`
+- `ValidateAgainstManifest()` compares local state against manifest for integrity
 
 This is simpler than maintaining a separate version counter. Each patch = one version bump.
+
+## Repair
+
+On start, the patcher validates each applied patch's hash and size against the manifest. If any mismatch is found:
+
+1. UI button changes from "Check for Updates" to "Repair"
+2. Repair fetches manifest, finds first mismatching patch ID
+3. Downloads and applies all patches from that ID onward
+4. Updates `goro-patch.json` after each successful patch
 
 ## GRF Merge
 

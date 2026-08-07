@@ -18,6 +18,7 @@ const inputManifestURL = document.getElementById('input-manifest-url');
 const inputExeName = document.getElementById('input-exe-name');
 const btnSaveSettings = document.getElementById('btn-settings-save');
 const btnCancelSettings = document.getElementById('btn-settings-cancel');
+const btnRepairSettings = document.getElementById('btn-repair-settings');
 
 let isChecking = false;
 let pollTimer = null;
@@ -43,6 +44,9 @@ function startPolling() {
         } else if (p.status.startsWith('Error:')) {
                 stopPolling();
                 onError({ code: 'ERR_PATCH', message: p.status.slice(7), fatal: false });
+            } else if (p.status.includes('Repair needed')) {
+                stopPolling();
+                onRepairNeeded();
             }
         } catch (_e) {}
     }, 100);
@@ -55,12 +59,34 @@ function stopPolling() {
     }
 }
 
+async function updateRepairState() {
+    try {
+        const needs = await App.NeedsRepair();
+        if (needs) {
+            btnStart.textContent = 'Repair';
+            btnStart.classList.add('repair');
+        } else {
+            btnStart.textContent = 'Check for Updates';
+            btnStart.classList.remove('repair');
+        }
+    } catch (_e) {}
+}
+
 function onFinished() {
+    isChecking = false;
     btnStart.disabled = false;
-    btnStart.textContent = 'Check for Updates';
     btnLaunch.disabled = false;
     errorSection.classList.add('hidden');
+    updateRepairState();
+}
+
+function onRepairNeeded() {
     isChecking = false;
+    btnStart.disabled = false;
+    btnStart.textContent = 'Repair';
+    btnStart.classList.add('repair');
+    btnLaunch.disabled = true;
+    errorSection.classList.add('hidden');
 }
 
 function onError(evt) {
@@ -69,8 +95,8 @@ function onError(evt) {
     errorSection.classList.remove('hidden');
     btnRetry.classList.toggle('hidden', evt.fatal);
     btnStart.disabled = false;
-    btnStart.textContent = 'Check for Updates';
     isChecking = false;
+    updateRepairState();
 }
 
 btnStart.addEventListener('click', async () => {
@@ -81,21 +107,27 @@ btnStart.addEventListener('click', async () => {
         stopPolling();
         isChecking = false;
         btnStart.disabled = false;
-        btnStart.textContent = 'Check for Updates';
         statusEl.textContent = 'Cancelled';
+        updateRepairState();
         return;
     }
 
     isChecking = true;
     btnStart.disabled = false;
     btnStart.textContent = 'Cancel';
+    btnStart.classList.remove('repair');
     btnLaunch.disabled = true;
     errorSection.classList.add('hidden');
 
     startPolling();
 
     try {
-        await App.StartCheck();
+        const needsRepair = await App.NeedsRepair();
+        if (needsRepair) {
+            await App.StartRepair();
+        } else {
+            await App.StartCheck();
+        }
     } catch (e) {
         stopPolling();
         onError({ code: 'ERR_START', message: e.message, fatal: false });
@@ -145,6 +177,11 @@ btnCancelSettings.addEventListener('click', () => {
     settingsSection.classList.add('hidden');
 });
 
+btnRepairSettings.addEventListener('click', async () => {
+    settingsSection.classList.add('hidden');
+    btnStart.click();
+});
+
 async function init() {
     try {
         const running = await App.IsGameRunning();
@@ -165,6 +202,7 @@ async function init() {
         }
     } catch (_e) {}
 
+    await updateRepairState();
     btnStart.click();
 }
 

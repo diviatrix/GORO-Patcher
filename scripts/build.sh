@@ -50,7 +50,7 @@ EOF
 }
 
 CLEAN=false
-REGENERATE=false
+REGENERATE=true
 TARGETS=()
 
 while [[ $# -gt 0 ]]; do

@@ -37,6 +37,8 @@ type App struct {
 
 	progressMu   sync.Mutex
 	progressInfo ProgressInfo
+	needsRepair  bool
+	repairFromID int
 }
 
 func NewApp() *App {
@@ -73,11 +75,14 @@ func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOpt
 
 	engine.CleanupStaleFiles(a.gamePath)
 
-	version, _ := engine.ReadLocalVersion(a.gamePath)
-	if version > 0 {
-		a.progressInfo = ProgressInfo{
-			Status:       fmt.Sprintf("Ready (patch %d)", version),
-			TotalPercent: 100,
+	state, err := engine.ReadLocalState(a.gamePath)
+	if err == nil {
+		version := engine.LocalVersion(state)
+		if version > 0 {
+			a.progressInfo = ProgressInfo{
+				Status:       fmt.Sprintf("Ready (patch %d)", version),
+				TotalPercent: 100,
+			}
 		}
 	}
 
@@ -120,6 +125,10 @@ func (a *App) setProgress(status, currentFile string, filePct, totalPct float64,
 	})
 }
 
+func (a *App) NeedsRepair() bool {
+	return a.needsRepair
+}
+
 func (a *App) StartCheck() error {
 	state := a.engine.State()
 	if state != engine.StateIdle && state != engine.StateReady && state != engine.StateError {
@@ -127,6 +136,16 @@ func (a *App) StartCheck() error {
 	}
 
 	go a.runCheckCycle()
+	return nil
+}
+
+func (a *App) StartRepair() error {
+	state := a.engine.State()
+	if state != engine.StateIdle && state != engine.StateReady && state != engine.StateError {
+		return fmt.Errorf("cannot start repair in state %s", state)
+	}
+
+	go a.runRepairCycle()
 	return nil
 }
 
@@ -162,18 +181,33 @@ func (a *App) runCheckCycle() {
 		}
 	}
 
-	// 3. Check game not running
+	// 3. Validate local state against manifest
+	localState, err := engine.ReadLocalState(a.gamePath)
+	if err != nil {
+		a.handleError("ERR_LOCAL_STATE", err.Error(), false)
+		return
+	}
+
+	if mismatchID, ok := engine.ValidateAgainstManifest(localState, manifest); !ok {
+		a.needsRepair = true
+		a.repairFromID = mismatchID
+		a.engine.SetState(engine.StateReady)
+		a.setProgress(fmt.Sprintf("Patch %d corrupted — Repair needed", mismatchID), "", 100, 100, "")
+		log.Printf("[check] Mismatch at patch %d, repair needed", mismatchID)
+		return
+	}
+
+	// 4. Check game not running
 	running, _ := detector.IsGameRunning(a.config.ExeName)
 	if running {
 		a.handleError("ERR_GAME_RUNNING", "Game is running. Please close it first.", false)
 		return
 	}
 
-	// 4. Apply patches one at a time
+	// 5. Apply patches one at a time
 	totalApplied := 0
 
 	for {
-		// Get next patch
 		queue, _, err := a.evaluatePatchQueue(manifest)
 		if err != nil {
 			a.handleError("ERR_LOCAL_STATE", err.Error(), false)
@@ -224,9 +258,15 @@ func (a *App) runCheckCycle() {
 		// Cleanup downloaded file
 		os.Remove(patchPath)
 
-		// Write version
-		if err := engine.WriteLocalVersion(a.gamePath, patch.ID); err != nil {
-			a.handleError("ERR_LOCAL_STATE", fmt.Sprintf("Failed to write version: %v", err), false)
+		// Write state
+		localState.AppliedPatches = append(localState.AppliedPatches, engine.LocalPatch{
+			ID:   patch.ID,
+			Name: patch.Name,
+			Hash: patch.Hash,
+			Size: patch.Size,
+		})
+		if err := engine.WriteLocalState(a.gamePath, localState); err != nil {
+			a.handleError("ERR_LOCAL_STATE", fmt.Sprintf("Failed to write state: %v", err), false)
 			return
 		}
 
@@ -236,7 +276,9 @@ func (a *App) runCheckCycle() {
 
 	engine.CleanupBackups(a.gamePath)
 
-	finalVersion, _ := engine.ReadLocalVersion(a.gamePath)
+	a.needsRepair = false
+	a.repairFromID = 0
+	finalVersion := engine.LocalVersion(localState)
 	a.engine.SetState(engine.StateReady)
 
 	if totalApplied == 0 {
@@ -246,6 +288,138 @@ func (a *App) runCheckCycle() {
 		log.Printf("[runCheckCycle] Complete, applied %d patches, version=%d", totalApplied, finalVersion)
 		a.setComplete(totalApplied, finalVersion)
 	}
+}
+
+func (a *App) runRepairCycle() {
+	ctx, cancel := context.WithCancel(a.ctx)
+	a.cancelFn = cancel
+	defer cancel()
+
+	a.engine.SetState(engine.StateChecking)
+	a.setProgress("Starting repair...", "", 0, 0, "")
+
+	// 1. Fetch manifest
+	manifest, err := a.fetchManifest(ctx)
+	if err != nil {
+		a.handleError("ERR_MANIFEST", err.Error(), true)
+		return
+	}
+
+	// 2. Check game not running
+	running, _ := detector.IsGameRunning(a.config.ExeName)
+	if running {
+		a.handleError("ERR_GAME_RUNNING", "Game is running. Please close it first.", false)
+		return
+	}
+
+	// 3. Find repair start point
+	localState, err := engine.ReadLocalState(a.gamePath)
+	if err != nil {
+		a.handleError("ERR_LOCAL_STATE", err.Error(), false)
+		return
+	}
+
+	mismatchID := a.repairFromID
+	if mismatchID <= 0 {
+		// Re-validate
+		mismatchID, _ = engine.ValidateAgainstManifest(localState, manifest)
+		if mismatchID < 0 {
+			a.engine.SetState(engine.StateReady)
+			a.setAlreadyUpToDate(engine.LocalVersion(localState))
+			return
+		}
+	}
+
+	// 4. Build queue from mismatch onward
+	var queue []engine.Patch
+	for _, p := range manifest.Patches {
+		if p.ID >= mismatchID {
+			queue = append(queue, p)
+		}
+	}
+	// Sort by ID
+	for i := 0; i < len(queue); i++ {
+		for j := i + 1; j < len(queue); j++ {
+			if queue[j].ID < queue[i].ID {
+				queue[i], queue[j] = queue[j], queue[i]
+			}
+		}
+	}
+
+	// 5. Remove mismatching and subsequent entries from local state
+	var repaired []engine.LocalPatch
+	for _, p := range localState.AppliedPatches {
+		if p.ID < mismatchID {
+			repaired = append(repaired, p)
+		}
+	}
+	localState.AppliedPatches = repaired
+	if err := engine.WriteLocalState(a.gamePath, localState); err != nil {
+		a.handleError("ERR_LOCAL_STATE", fmt.Sprintf("Failed to write state: %v", err), false)
+		return
+	}
+
+	// 6. Download and apply
+	totalApplied := 0
+	for _, patch := range queue {
+		a.engine.SetState(engine.StateDownloading)
+		a.setProgress(fmt.Sprintf("Repairing %s...", patch.Name), patch.Name, 0, 0, "")
+
+		patchPath, err := a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
+		if err != nil {
+			a.handleError("ERR_DOWNLOAD", fmt.Sprintf("Failed to get %s: %v", patch.Name, err), false)
+			return
+		}
+
+		if err := downloader.VerifyFile(patchPath, patch.Hash); err != nil {
+			log.Printf("[repair] Hash mismatch for %s, re-downloading: %v", patch.Name, err)
+			os.Remove(patchPath)
+			patchPath, err = a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
+			if err != nil {
+				a.handleError("ERR_DOWNLOAD", fmt.Sprintf("Re-download %s failed: %v", patch.Name, err), false)
+				return
+			}
+			if err := downloader.VerifyFile(patchPath, patch.Hash); err != nil {
+				os.Remove(patchPath)
+				a.handleError("ERR_HASH", fmt.Sprintf("Hash mismatch for %s after re-download: %v", patch.Name, err), false)
+				return
+			}
+		}
+
+		a.engine.SetState(engine.StatePatching)
+		a.setProgress(fmt.Sprintf("Applying %s...", patch.Name), patch.Name, 100, 0, "")
+
+		if err := a.applyPatch(patch, patchPath, len(queue), totalApplied+1); err != nil {
+			a.handleError("ERR_PATCH", fmt.Sprintf("Failed to apply %s: %v", patch.Name, err), false)
+			return
+		}
+
+		os.Remove(patchPath)
+
+		localState.AppliedPatches = append(localState.AppliedPatches, engine.LocalPatch{
+			ID:   patch.ID,
+			Name: patch.Name,
+			Hash: patch.Hash,
+			Size: patch.Size,
+		})
+		if err := engine.WriteLocalState(a.gamePath, localState); err != nil {
+			a.handleError("ERR_LOCAL_STATE", fmt.Sprintf("Failed to write state: %v", err), false)
+			return
+		}
+
+		totalApplied++
+		log.Printf("[repair] Applied %s (id=%d)", patch.Name, patch.ID)
+	}
+
+	engine.CleanupBackups(a.gamePath)
+
+	a.needsRepair = false
+	a.repairFromID = 0
+	finalVersion := engine.LocalVersion(localState)
+	a.engine.SetState(engine.StateReady)
+
+	log.Printf("[repair] Complete, repaired %d patches, version=%d", totalApplied, finalVersion)
+	a.setComplete(totalApplied, finalVersion)
 }
 
 func (a *App) fetchManifest(ctx context.Context) (*engine.Manifest, error) {
@@ -263,11 +437,12 @@ func (a *App) fetchManifest(ctx context.Context) (*engine.Manifest, error) {
 }
 
 func (a *App) evaluatePatchQueue(manifest *engine.Manifest) ([]engine.Patch, int, error) {
-	localVersion, err := engine.ReadLocalVersion(a.gamePath)
+	localState, err := engine.ReadLocalState(a.gamePath)
 	if err != nil {
-		return nil, 0, fmt.Errorf("read local version: %w", err)
+		return nil, 0, fmt.Errorf("read local state: %w", err)
 	}
 
+	localVersion := engine.LocalVersion(localState)
 	queue := engine.BuildQueue(manifest, localVersion)
 	return queue, localVersion, nil
 }
@@ -339,7 +514,11 @@ func (a *App) LaunchGame() error {
 }
 
 func (a *App) GetLocalVersion() (int, error) {
-	return engine.ReadLocalVersion(a.gamePath)
+	state, err := engine.ReadLocalState(a.gamePath)
+	if err != nil {
+		return 0, err
+	}
+	return engine.LocalVersion(state), nil
 }
 
 func (a *App) GetManifestURL() string {

@@ -68,3 +68,12 @@ func NeedsUpdate(m *Manifest, localVersion int) bool {
 func NeedsSelfUpdate(m *Manifest) bool {
 	return m != nil && m.PatcherURL != "" && m.PatcherHash != ""
 }
+
+func FindPatchByID(patches []Patch, id int) *Patch {
+	for i := range patches {
+		if patches[i].ID == id {
+			return &patches[i]
+		}
+	}
+	return nil
+}
