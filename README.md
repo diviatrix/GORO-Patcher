@@ -13,6 +13,7 @@ Cross-platform Ragnarok Online patcher. Merges GRF files and extracts raw patche
 - Crash-safe atomic GRF writes
 - Auto-check on start
 - Patch integrity validation + Repair
+- Markdown notes (patch notes, news, announcements)
 - Linux and Windows builds
 
 ## Quick Start
