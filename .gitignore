@@ -30,3 +30,6 @@ build/*
 # Internal
 AGENTS.md
 opencode.json
+
+# Prototype
+proto/*
