@@ -129,9 +129,16 @@ The `target` field is the file that gets patched. Use whatever GRF name your ser
 ```json
 {
   "manifest_url": "https://patches.yourserver.com/plist.json",
-  "exe_name": "your-client.exe"
+  "exe_name": "your-client.exe",
+  "notes_url": "https://patches.yourserver.com/notes.json"
 }
 ```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `manifest_url` | Yes | URL to your `plist.json` |
+| `exe_name` | Yes | Game executable name |
+| `notes_url` | No | URL to `notes.json` for displaying notes |
 
 ## Step 6: Distribute to Players
 
@@ -176,6 +183,54 @@ Add to manifest:
 ```
 
 Patcher compares its own hash and updates if different.
+
+## Notes (Optional)
+
+Display markdown notes (news, patch notes, announcements) in the patcher UI.
+
+### Setup
+
+1. Create `notes.json` and host it on your patch server
+2. Add `notes_url` to `goro-config.json`
+3. Create markdown files and host them alongside
+
+**notes.json:**
+```json
+{
+  "notes_base_url": "https://patches.yourserver.com/notes/",
+  "notes_css_url": "https://patches.yourserver.com/notes/design.css",
+  "notes": [
+    { "id": 0, "name": "welcome.md" },
+    { "id": 1, "name": "patch_v2.md" }
+  ]
+}
+```
+
+**notes/welcome.md:**
+```markdown
+# Welcome
+
+Welcome to the server! Talk to the Tutorial NPC to get started.
+```
+
+### Display Order
+
+Notes are sorted by ID descending. Highest ID (newest) appears at the top.
+
+### Custom CSS
+
+Create a CSS file and set `notes_css_url` to style your notes. The CSS is scoped to the notes section and can override any HTML element rendered from markdown.
+
+```css
+h1 { color: #f3e0b5; border-bottom: 1px solid #4a2f1b; }
+blockquote { border-left: 3px solid #c5a059; color: #a89070; }
+```
+
+If `notes_css_url` is empty or omitted, browser defaults are used.
+
+### Protocols
+
+`notes_base_url` and `notes_css_url` support `file://`, `http://`, and `https://`.
 
 ## Branding (Optional)
 

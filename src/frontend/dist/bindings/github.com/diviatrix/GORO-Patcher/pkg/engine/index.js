@@ -4,5 +4,6 @@
 
 export {
     ErrorEvent,
-    ProgressEvent
+    ProgressEvent,
+    RenderedNote
 } from "./models.js";

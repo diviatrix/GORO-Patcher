@@ -141,6 +141,53 @@ hash, err := downloader.HashFile("path/to/patch.grf")
 // hash = "a899ed08439de698"
 ```
 
+## Notes (notes.json)
+
+Optional. Displays markdown notes in the patcher UI. Configured via `notes_url` in `goro-config.json`.
+
+### Configuration
+
+`notes.json`:
+```json
+{
+  "notes_base_url": "https://your-server.com/notes/",
+  "notes_css_url": "https://your-server.com/notes/design.css",
+  "notes": [
+    { "id": 0, "name": "note_0.md" },
+    { "id": 1, "name": "note_1.md" }
+  ]
+}
+```
+
+### Fields
+
+| Field | Description |
+|-------|-------------|
+| `notes_base_url` | Base URL for note files. Appended with `name`. |
+| `notes_css_url` | Optional. Custom CSS for note styling. Empty or omitted = no overrides. |
+| `notes[].id` | Note ID. Used for sorting — highest ID displayed first. |
+| `notes[].name` | Markdown filename (fetched from `notes_base_url + name`). |
+
+### Protocol Support
+
+`notes_base_url` and `notes_css_url` support `file://`, `http://`, and `https://` protocols. Bare file paths (without `file://`) are not supported.
+
+### Display Order
+
+Notes are sorted by ID descending — latest note appears at the top.
+
+### Links
+
+Links in notes open in the user's default external browser, not inside the patcher window.
+
+### Custom CSS
+
+If `notes_css_url` is set, the CSS is injected into the notes section. It can override any HTML element styling within notes. If empty or omitted, browser defaults are used.
+
+### Markdown
+
+Standard CommonMark: headings, bold, italic, links, lists, code blocks, blockquotes, tables, images.
+
 ## Example: Adding a New Patch
 
 1. Create the patch file (GRF or zip)

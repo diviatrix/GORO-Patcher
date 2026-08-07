@@ -103,3 +103,45 @@ export class ProgressEvent {
         return new ProgressEvent(/** @type {Partial<ProgressEvent>} */($$parsedSource));
     }
 }
+
+export class RenderedNote {
+    /**
+     * Creates a new RenderedNote instance.
+     * @param {Partial<RenderedNote>} [$$source = {}] - The source object to create the RenderedNote.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["id"] = 0;
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("content" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["content"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RenderedNote instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {RenderedNote}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new RenderedNote(/** @type {Partial<RenderedNote>} */($$parsedSource));
+    }
+}

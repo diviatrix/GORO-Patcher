@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.0.2] - 2026-08-08
+
+### Features
+
+- **Notes system** — display markdown notes (patch notes, news, announcements) in the patcher UI
+  - Configured via `notes_url` in `goro-config.json` pointing to `notes.json`
+  - Notes are markdown files rendered to HTML on the Go side (`gomarkdown/markdown`)
+  - Custom CSS support via `notes_css_url` for styling notes
+  - Notes sorted by ID descending — newest first
+  - Supports `file://`, `http://`, `https://` protocols
+- **External link handling** — links in notes open in default browser, not inside patcher
+- **Drag-and-drop prevention** — dropping files onto patcher UI no longer opens them
+
+### Fixes
+
+- Fixed list bullet padding in notes display
+- Fixed random file dnd to patcher window
+
 ## [0.0.1] - 2026-08-07
 
 Initial release of GORO-Patcher.

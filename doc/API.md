@@ -91,6 +91,13 @@ Returns the current manifest URL from config.
 - **Parameters**: none
 - **Returns**: `string`
 
+### `GetNotes()`
+
+
+
+- **Parameters**: none
+- **Returns**: `[engine$0.RenderedNote[], string]`
+
 ### `GetProgress()`
 
 Returns current patching progress state. Poll every 100ms for real-time updates.

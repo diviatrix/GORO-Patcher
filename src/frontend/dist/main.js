@@ -1,5 +1,8 @@
 import { App } from './bindings/github.com/diviatrix/GORO-Patcher/index.js';
 
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => e.preventDefault());
+
 const statusEl = document.getElementById('status');
 const currentFileEl = document.getElementById('current-file');
 const progressBar = document.getElementById('progress-bar');
@@ -204,6 +207,34 @@ async function init() {
 
     await updateRepairState();
     btnStart.click();
+    loadNotes();
 }
+
+async function loadNotes() {
+    try {
+        const [notes, css] = await App.GetNotes();
+        if (css) {
+            document.getElementById('notes-custom-css').textContent = css;
+        }
+        const container = document.getElementById('notes-content');
+        container.innerHTML = '';
+        if (notes && notes.length > 0) {
+            for (const note of notes) {
+                const div = document.createElement('div');
+                div.className = 'note-entry';
+                div.innerHTML = note.content;
+                container.appendChild(div);
+            }
+        }
+    } catch (_e) {}
+}
+
+document.getElementById('notes-content').addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link && link.href) {
+        e.preventDefault();
+        window.wails.Browser.OpenURL(link.href);
+    }
+});
 
 init();

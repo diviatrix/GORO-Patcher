@@ -25,6 +25,9 @@ src/
     │   ├── manifest.go         # plist.json parser, patch queue builder
     │   ├── config.go           # goro-config.json read/write
     │   ├── localstate.go       # goro-patch.json (patch tracking + validation)
+    │   ├── localstate_test.go  # Local state tests
+    │   ├── notes.go            # notes.json parser, markdown rendering
+    │   ├── notes_test.go       # Notes tests
     │   ├── launcher.go         # Game process launch
     │   ├── launcher_linux.go   # Linux launch implementation
     │   ├── launcher_windows.go # Windows launch implementation
@@ -129,6 +132,20 @@ On start, the patcher validates each applied patch's hash and size against the m
 3. Downloads and applies all patches from that ID onward
 4. Updates `goro-patch.json` after each successful patch
 
+## Notes
+
+Optional feature. Displays markdown content in the notes section of the UI.
+
+1. Frontend calls `App.GetNotes()` on init
+2. Go fetches `notes.json` from `notes_url` in config
+3. For each note entry, fetches `.md` from `notes_base_url + name`
+4. Renders markdown to HTML using `gomarkdown/markdown`
+5. Optionally fetches custom CSS from `notes_css_url`
+6. Returns rendered notes (sorted by ID desc) + CSS to frontend
+7. Frontend injects HTML and CSS into notes section
+
+Notes are fetched on every app start. No local caching. If `notes_url` is empty, notes are disabled.
+
 ## GRF Merge
 
 The merge happens in-memory:
@@ -152,3 +169,5 @@ The merge happens in-memory:
 - Frontend imports bindings from `./bindings/github.com/diviatrix/GORO-Patcher/index.js`
 - Window is frameless, dragging via `--wails-draggable: drag` CSS
 - Buttons use `window.wails.Window.Minimise()` and `window.wails.Application.Quit()`
+- Links in notes open externally via `window.wails.Browser.OpenURL()`
+- Drag-and-drop prevented via `preventDefault()` on `dragover` and `drop` events

@@ -11,6 +11,7 @@ const configFileName = "goro-config.json"
 type Config struct {
 	ManifestURL string `json:"manifest_url"`
 	ExeName     string `json:"exe_name"`
+	NotesURL    string `json:"notes_url,omitempty"`
 }
 
 func DefaultConfig() *Config {

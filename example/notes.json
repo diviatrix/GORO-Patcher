@@ -1,0 +1,18 @@
+{
+  "notes_base_url": "file:///home/zero/repo/GORO-Patcher/example/notes/",
+  "notes_css_url": "file:///home/zero/repo/GORO-Patcher/example/notes/design.css",
+  "notes": [
+    {
+      "id": 0,
+      "name": "note_0.md"
+    },
+    {
+      "id": 1,
+      "name": "note_1.md"
+    },
+    {
+      "id": 2,
+      "name": "note_2.md"
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 {
   "manifest_url": "http://localhost:8080/plist.json",
-  "exe_name": "your-client.exe"
+  "exe_name": "your-client.exe",
+  "notes_url": "http://localhost:8080/notes.json"
 }

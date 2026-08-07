@@ -62,11 +62,21 @@ export function GetManifestURL() {
 }
 
 /**
+ * @returns {$CancellablePromise<[engine$0.RenderedNote[], string]>}
+ */
+export function GetNotes() {
+    return $Call.ByID(84666500).then(/** @type {($result: any) => any} */(($result) => {
+        $result[0] = $$createType1($result[0]);
+        return $result;
+    }));
+}
+
+/**
  * @returns {$CancellablePromise<$models.ProgressInfo>}
  */
 export function GetProgress() {
     return $Call.ByID(997636720).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType0($result);
+        return $$createType2($result);
     }));
 }
 
@@ -130,4 +140,6 @@ export function StartRepair() {
 }
 
 // Private type creation functions
-const $$createType0 = $models.ProgressInfo.createFrom;
+const $$createType0 = engine$0.RenderedNote.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $models.ProgressInfo.createFrom;

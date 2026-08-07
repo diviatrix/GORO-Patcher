@@ -543,6 +543,54 @@ func (a *App) IsGameRunning() (bool, error) {
 	return detector.IsGameRunning(a.config.ExeName)
 }
 
+func (a *App) GetNotes() ([]engine.RenderedNote, string, error) {
+	if a.config.NotesURL == "" {
+		return nil, "", nil
+	}
+
+	data, err := a.dl.FetchBytes(a.ctx, a.config.NotesURL)
+	if err != nil {
+		log.Printf("[notes] Failed to fetch notes config: %v", err)
+		return nil, "", nil
+	}
+
+	manifest, err := engine.ParseNotesManifest(data)
+	if err != nil {
+		log.Printf("[notes] Failed to parse notes config: %v", err)
+		return nil, "", nil
+	}
+
+	var notes []engine.RenderedNote
+	for _, entry := range manifest.Notes {
+		noteURL := manifest.NotesBaseURL + entry.Name
+		mdData, err := a.dl.FetchBytes(a.ctx, noteURL)
+		if err != nil {
+			log.Printf("[notes] Failed to fetch note %s: %v", entry.Name, err)
+			continue
+		}
+
+		notes = append(notes, engine.RenderedNote{
+			ID:      entry.ID,
+			Name:    entry.Name,
+			Content: engine.RenderMarkdown(mdData),
+		})
+	}
+
+	engine.SortNotesByIDDesc(notes)
+
+	var css string
+	if manifest.NotesCSSURL != "" {
+		cssData, err := a.dl.FetchBytes(a.ctx, manifest.NotesCSSURL)
+		if err != nil {
+			log.Printf("[notes] Failed to fetch notes CSS: %v", err)
+		} else {
+			css = string(cssData)
+		}
+	}
+
+	return notes, css, nil
+}
+
 func (a *App) CancelDownload() error {
 	if a.cancelFn != nil {
 		a.cancelFn()
