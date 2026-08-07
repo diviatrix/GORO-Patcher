@@ -30,7 +30,6 @@ Cross-platform Ragnarok Online patcher. Merges GRF files and extracts raw patche
 - [Architecture](doc/ARCHITECTURE.md) — how the code works, design decisions
 - [Build Guide](doc/BUILD.md) — prerequisites, build commands
 - [Patch Format](doc/PATCH_FORMAT.md) — manifest and patch types
-- [GRF Format](doc/GRF_FORMAT.md) — GRF 2.0 binary specification
 - [Changelog](doc/CHANGELOG.md) — version history
 
 ## License
