@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GORO Patcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <div class="header-left">
+      <span class="logo">GORO-Patcher</span>
+      <span class="header-tag">v<span id="latest-ver">0.0.2</span></span>
+      <span class="header-tag header-tag--green">MIT</span>
+    </div>
+    <nav class="header-nav">
+      <a href="#about">About</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#features">Features</a>
+      <a href="#changelog">Changelog</a>
+      <a href="#releases">Releases</a>
+      <a href="#contribute">Contribute</a>
+      <a href="https://github.com/diviatrix/GORO-Patcher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- QUICKSTART -->
+<section id="about" class="section">
+  <div class="container">
+    <div class="qs">
+      <div class="qs-text">
+        <h1 class="qs-title">GORO <span class="gold">Patcher</span></h1>
+        <p class="qs-sub">Cross-platform patcher for Ragnarok Online private servers. Merges GRF files, extracts raw patches, verifies integrity. No dependencies.</p>
+        <div class="qs-tags">
+          <span class="tag">Go + Wails v3</span>
+          <span class="tag">Windows / Linux</span>
+          <span class="tag">GRF 2.0</span>
+        </div>
+        <div class="qs-actions">
+          <a href="https://github.com/diviatrix/GORO-Patcher/releases" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download
+          </a>
+          <a href="https://github.com/diviatrix/GORO-Patcher" class="btn btn-ghost">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            Source
+          </a>
+        </div>
+      </div>
+      <div class="qs-screenshot">
+        <img src="https://github.com/diviatrix/GORO-Patcher/raw/main/doc/img/patcher.jpg" alt="GORO Patcher UI" loading="lazy" class="zoomable">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">What it does</h2>
+    <div class="about-cols">
+      <div class="about-col">
+        <h3 class="about-heading">Patching</h3>
+        <p>Downloads patches from your URL, verifies with <strong>XXHash64</strong>, applies safely. GRF 2.0 merge with atomic writes and automatic backup restoration.</p>
+      </div>
+      <div class="about-col">
+        <h3 class="about-heading">Distribution</h3>
+        <p>Build one manifest, serve over HTTP/HTTPS. Download resume, retry with backoff, self-update &mdash; all built in. Push patcher builds alongside game patches.</p>
+      </div>
+      <div class="about-col">
+        <h3 class="about-heading">Customization</h3>
+        <p>Wails v3 webview UI. Customize the look with standard HTML/CSS. Display markdown patch notes with custom CSS for server branding.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="section">
+  <div class="container">
+    <h2 class="section-title">Features</h2>
+    <div class="features-grid">
+      <div class="feature">
+        <span class="feature-icon gold">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+        </span>
+        <div>
+          <span class="feature-name">GRF 2.0 Merge</span>
+          <span class="feature-desc">Read/write GRF format. Apply .grf or .zip patches directly into game archives.</span>
+        </div>
+      </div>
+      <div class="feature">
+        <span class="feature-icon green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+        </span>
+        <div>
+          <span class="feature-name">Raw Extraction</span>
+          <span class="feature-desc">Extract patch contents as raw files. Supports GRF-packed and loose-file distribution.</span>
+        </div>
+      </div>
+      <div class="feature">
+        <span class="feature-icon gold">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </span>
+        <div>
+          <span class="feature-name">Download Resume</span>
+          <span class="feature-desc">HTTP Range headers with automatic retry and exponential backoff.</span>
+        </div>
+      </div>
+      <div class="feature">
+        <span class="feature-icon green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </span>
+        <div>
+          <span class="feature-name">Hash Verification</span>
+          <span class="feature-desc">XXHash64 checksums on every file. Corrupted downloads detected and re-fetched.</span>
+        </div>
+      </div>
+      <div class="feature">
+        <span class="feature-icon gold">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        </span>
+        <div>
+          <span class="feature-name">Atomic Writes</span>
+          <span class="feature-desc">Temp file swap with automatic backup restoration on failure.</span>
+        </div>
+      </div>
+      <div class="feature">
+        <span class="feature-icon green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.78 7.78 5.5 5.5 0 017.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        </span>
+        <div>
+          <span class="feature-name">Self-Update</span>
+          <span class="feature-desc">Patcher updates itself from the manifest. Push new builds with game patches.</span>
+        </div>
+      </div>
+      <div class="feature">
+        <span class="feature-icon gold">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        </span>
+        <div>
+          <span class="feature-name">Markdown Notes</span>
+          <span class="feature-desc">Display patch notes and announcements. Supports custom CSS branding.</span>
+        </div>
+      </div>
+      <div class="feature">
+        <span class="feature-icon green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </span>
+        <div>
+          <span class="feature-name">Auto-Check</span>
+          <span class="feature-desc">Patch status checked on launch. Players see updates immediately.</span>
+        </div>
+      </div>
+    </div>
+    <div class="platforms-row">
+      <span class="platform-pill">Windows</span>
+      <span class="platform-pill">Linux</span>
+      <span class="platform-pill">Go 1.24+</span>
+      <span class="platform-pill">Wails v3</span>
+    </div>
+  </div>
+</section>
+
+<!-- QUICKSTART GUIDE -->
+<section id="quickstart" class="section">
+  <div class="container">
+    <h2 class="section-title">Quickstart</h2>
+    <ol class="qs-steps">
+      <li>
+        <span class="qs-step-num">1</span>
+        <div>
+          <strong>Download</strong> the latest release from <a href="https://github.com/diviatrix/GORO-Patcher/releases">GitHub Releases</a>. Grab the binary for your platform.
+        </div>
+      </li>
+      <li>
+        <span class="qs-step-num">2</span>
+        <div>
+          <strong>Create patches.</strong> Two types: <strong>GRF</strong> patches merge <code>.grf</code> or <code>.zip</code> into your client's GRF. <strong>Raw</strong> patches extract non-GRF files (exe, dll, lub) to the game directory. Hash with the included <code>hashfile</code> tool.
+        </div>
+      </li>
+      <li>
+        <span class="qs-step-num">3</span>
+        <div>
+          <strong>Create <code>plist.json</code></strong> manifest listing your patches, hashes, sizes, and targets. Host it on any static file server (nginx, S3, GitHub Pages, etc.).
+        </div>
+      </li>
+      <li>
+        <span class="qs-step-num">4</span>
+        <div>
+          <strong>Configure the patcher</strong> with <code>goro-config.json</code> next to the binary. Set <code>manifest_url</code>, <code>exe_name</code>, and <code>notes_url</code> pointing to a <code>notes.json</code> that lists markdown files for patch notes, news, or announcements.
+        </div>
+      </li>
+      <li>
+        <span class="qs-step-num">5</span>
+        <div>
+          <strong>Package &amp; distribute.</strong> Bundle the patcher binary, <code>goro-config.json</code>, and your base GRF. Players run the patcher &mdash; it checks for updates, downloads, applies patches, and enables Launch Game.
+        </div>
+      </li>
+    </ol>
+    <p class="qs-docs-link">Full documentation: <a href="https://github.com/diviatrix/GORO-Patcher/blob/main/doc/USER_GUIDE.md">User Guide &rarr;</a></p>
+  </div>
+</section>
+
+<!-- RELEASES -->
+<section id="releases" class="section">
+  <div class="container">
+    <h2 class="section-title">Releases</h2>
+    <div class="changelog-list" id="changelog-list">
+      <div class="changelog-loading">
+        <span class="spinner"></span> Fetching from GitHub...
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CHANGELOG -->
+<section id="changelog" class="section">
+  <div class="container">
+    <div class="changelog-list">
+      <details class="release">
+        <summary class="release-summary">
+          <span class="release-ver">Changelog</span>
+        </summary>
+        <div class="release-body changelog-content" id="changelog-content">
+          <div class="changelog-loading">
+            <span class="spinner"></span> Loading changelog...
+          </div>
+        </div>
+        <a class="release-link" href="https://github.com/diviatrix/GORO-Patcher/blob/main/doc/CHANGELOG.md" target="_blank" rel="noopener">View on GitHub &rarr;</a>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- CONTRIBUTE -->
+<section id="contribute" class="section">
+  <div class="container">
+    <h2 class="section-title">Contribute</h2>
+    <div class="contribute-grid">
+      <div class="contribute-item">
+        <h3>Bug Reports</h3>
+        <p>Open an issue with your OS, steps to reproduce, and patcher version.</p>
+        <a href="https://github.com/diviatrix/GORO-Patcher/issues/new">Open an issue &rarr;</a>
+      </div>
+      <div class="contribute-item">
+        <h3>Feature Requests</h3>
+        <p>Describe your use case. Understanding context matters more than the solution.</p>
+        <a href="https://github.com/diviatrix/GORO-Patcher/issues/new">Start a discussion &rarr;</a>
+      </div>
+      <div class="contribute-item">
+        <h3>Code</h3>
+        <p>Go + Wails v3. Fork, branch, PR. For larger changes, open an issue first.</p>
+        <a href="https://github.com/diviatrix/GORO-Patcher/fork">Fork the repo &rarr;</a>
+      </div>
+      <div class="contribute-item">
+        <h3>Testing & Docs</h3>
+        <p>Testing on different distros, Windows versions, or GRF edge cases.</p>
+        <a href="https://github.com/diviatrix/GORO-Patcher">Browse the repo &rarr;</a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- DONATE -->
+<section class="section section--donate">
+  <div class="container">
+    <div class="donate-row">
+      <span class="donate-label">Support:</span>
+      <a href="https://ko-fi.com/diviatrix" class="donate-link" target="_blank" rel="noopener">Ko-fi</a>
+      <a href="https://github.com/sponsors/diviatrix" class="donate-link" target="_blank" rel="noopener">GitHub Sponsors</a>
+      <a href="https://www.paypal.com/paypalme/diviatrix" class="donate-link" target="_blank" rel="noopener">PayPal</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <p>GORO Patcher &middot; MIT &middot; <a href="https://github.com/diviatrix/GORO-Patcher">github.com/diviatrix/GORO-Patcher</a></p>
+  </div>
+</footer>
+
+<template id="release-card-tmpl">
+  <details class="release">
+    <summary class="release-summary">
+      <span class="release-ver" data-field="ver"></span>
+      <span class="release-date" data-field="date"></span>
+    </summary>
+    <div class="release-body" data-field="body"></div>
+    <a class="release-link" data-field="link" target="_blank" rel="noopener">View on GitHub &rarr;</a>
+  </details>
+</template>
+
+<script src="main.js"></script>
+
+</body>
+</html>
