@@ -665,41 +665,6 @@ strong { color: var(--white); font-weight: 600; }
   border-radius: 0 4px 4px 0;
 }
 
-/* ─── DONATE ─── */
-.section--donate {
-  padding: 1.5rem 0;
-  border-bottom: none;
-}
-
-.donate-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.donate-label {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  color: var(--text-dim);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.donate-link {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  color: var(--text-dim);
-  letter-spacing: 0.03em;
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  transition: all 0.15s;
-}
-.donate-link:hover {
-  border-color: var(--green-dim);
-  color: var(--white);
-}
 
 /* ─── FOOTER ─── */
 .footer {
