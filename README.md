@@ -1,6 +1,7 @@
 # GORO-Patcher
 
 Cross-platform Ragnarok Online patcher. Merges GRF files and extracts raw patches.
+
 Project page: https://goro.1337.plus/
 
 [![Patcher UI](doc/img/patcher.jpg)](doc/img/patcher.jpg)
