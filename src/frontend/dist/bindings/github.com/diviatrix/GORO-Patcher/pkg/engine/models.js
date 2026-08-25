@@ -48,6 +48,112 @@ export class ErrorEvent {
     }
 }
 
+export class GRFCheckReport {
+    /**
+     * Creates a new GRFCheckReport instance.
+     * @param {Partial<GRFCheckReport>} [$$source = {}] - The source object to create the GRFCheckReport.
+     */
+    constructor($$source = {}) {
+        if (!("full" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["full"] = false;
+        }
+        if (!("grfs" in $$source)) {
+            /**
+             * @member
+             * @type {GRFCheckResult[]}
+             */
+            this["grfs"] = [];
+        }
+        if (!("ok" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["ok"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GRFCheckReport instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {GRFCheckReport}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("grfs" in $$parsedSource) {
+            $$parsedSource["grfs"] = $$createField1_0($$parsedSource["grfs"]);
+        }
+        return new GRFCheckReport(/** @type {Partial<GRFCheckReport>} */($$parsedSource));
+    }
+}
+
+export class GRFCheckResult {
+    /**
+     * Creates a new GRFCheckResult instance.
+     * @param {Partial<GRFCheckResult>} [$$source = {}] - The source object to create the GRFCheckResult.
+     */
+    constructor($$source = {}) {
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("checked" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["checked"] = 0;
+        }
+        if (!("failed" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["failed"] = [];
+        }
+        if (!("ok" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["ok"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["error"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new GRFCheckResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {GRFCheckResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("failed" in $$parsedSource) {
+            $$parsedSource["failed"] = $$createField2_0($$parsedSource["failed"]);
+        }
+        return new GRFCheckResult(/** @type {Partial<GRFCheckResult>} */($$parsedSource));
+    }
+}
+
 export class ProgressEvent {
     /**
      * Creates a new ProgressEvent instance.
@@ -145,3 +251,8 @@ export class RenderedNote {
         return new RenderedNote(/** @type {Partial<RenderedNote>} */($$parsedSource));
     }
 }
+
+// Private type creation functions
+const $$createType0 = GRFCheckResult.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $Create.Array($Create.Any);

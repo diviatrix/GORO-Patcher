@@ -16,7 +16,8 @@ func TestParseManifest(t *testing.T) {
 				"hash": "8f4e3c2b",
 				"size": 1048576,
 				"type": "grf",
-				"target": "data.grf"
+				"target": "data.grf",
+				"file_hashes": { "data/items.lub": "abcd1234" }
 			},
 			{
 				"id": 105,
@@ -24,7 +25,9 @@ func TestParseManifest(t *testing.T) {
 				"hash": "1a2b3c4d",
 				"size": 524288,
 				"type": "raw",
-				"target": "System/itemInfo.lub"
+				"target": "System/itemInfo.lub",
+				"file_hashes": { "System/itemInfo.lub": "ef567890", "dinput.dll": "a1b2c3d4" },
+				"mutable": ["config.ini"]
 			}
 		]
 	}`)
@@ -42,6 +45,12 @@ func TestParseManifest(t *testing.T) {
 	}
 	if m.Patches[1].Target != "System/itemInfo.lub" {
 		t.Errorf("patch[1].target: got %s, want System/itemInfo.lub", m.Patches[1].Target)
+	}
+	if m.Patches[0].FileHashes["data/items.lub"] != "abcd1234" {
+		t.Errorf("patch[0].file_hashes[data/items.lub]: got %s, want abcd1234", m.Patches[0].FileHashes["data/items.lub"])
+	}
+	if len(m.Patches[1].Mutable) != 1 || m.Patches[1].Mutable[0] != "config.ini" {
+		t.Errorf("patch[1].mutable: got %v, want [config.ini]", m.Patches[1].Mutable)
 	}
 	if m.MaxPatchID() != 105 {
 		t.Errorf("MaxPatchID: got %d, want 105", m.MaxPatchID())

@@ -24,14 +24,6 @@ tasks:
     internal: true
     deps:
       - task: common:go:mod:tidy
-      - task: common:build:frontend
-        vars:
-          BUILD_FLAGS:
-            ref: .BUILD_FLAGS
-          OBFUSCATED:
-            ref: .OBFUSCATED
-          DEV:
-            ref: .DEV
       - task: common:generate:icons
     preconditions:
       - sh: '{{if eq .OBFUSCATED "true"}}command -v garble >/dev/null 2>&1{{else}}true{{end}}'

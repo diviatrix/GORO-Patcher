@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"golang.org/x/text/encoding/korean"
@@ -300,6 +301,7 @@ func (g *GRF) SaveAs(dest string) error {
 	for name := range g.entries {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 
 	for _, name := range names {
 		entry := g.entries[name]

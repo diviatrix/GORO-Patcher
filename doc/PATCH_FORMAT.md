@@ -40,6 +40,8 @@ plist.json address for patcher itself is specified in `goro-config.json`.
 | `patches[].size` | File size in bytes |
 | `patches[].type` | `grf` or `raw` |
 | `patches[].target` | Target file for GRF merge, or relative path for raw extract |
+| `patches[].file_hashes` | **Optional.** Map of entry/file → XXHash64 of its content. For `grf` the keys are GRF entry paths (content hash); for `raw` the keys are extracted relative paths (file hash). Enables installed-file verification. Omitted (empty) when a patch writes nothing new. |
+| `patches[].mutable` | **Optional.** List of `raw` relative paths the game rewrites at runtime. Those are verified at **apply time only** and excluded from the **startup re-check** (avoids false "corrupt → repair"). |
 
 ### Version = Patch ID
 
@@ -68,7 +70,22 @@ The patcher tracks applied patches in `goro-patch.json` (next to the patcher bin
 
 ### Validation
 
-On start, the patcher compares each applied patch's `hash` and `size` against the manifest (`plist.json`). If any mismatch is found (corrupted file, changed manifest, missing patch), the UI shows a **Repair** button.
+The `hash`/`size` fields verify the **downloaded archive** (checked at download time against the patch file).
+
+The optional `file_hashes` verifies the **installed result on disk**:
+
+- **grf**: each GRF entry the patch writes is read back from the target GRF and its content hash is compared to `file_hashes`. Content is base-independent (dictated by the patch), so this works regardless of GRF serialization details.
+- **raw**: each extracted file is hashed and compared to `file_hashes` of its **highest writer** (last patch that wrote it, last-wins).
+- `mutable` raw files are checked at **apply time only**, not on the startup re-check, so runtime-rewritten configs/lub/ini don't trigger false repairs.
+- Patches **without** `file_hashes` are verified by archive hash only — no installed check, no failure reported.
+- An applied patch **pruned** from the manifest is treated as history, not an error.
+- Raw `file_hashes` keys that fail path sanitization (e.g. `../`) are ignored.
+
+If any installed check fails (missing/corrupt file, changed content), the UI shows a **Repair** button from the first failing patch.
+
+### Full GRF Check (Settings)
+
+`App.FullGRFCheck` (Settings → Full GRF Check) performs a deep scan of every patcher-owned GRF: it opens the GRF and reads the content of **all** entries, reporting any that fail. This catches corruption in entries that no patch ever wrote (which per-patch `file_hashes` deliberately does not). The result is surfaced in the status line.
 
 ### Repair
 
@@ -140,6 +157,18 @@ import "github.com/diviatrix/GORO-Patcher/pkg/downloader"
 hash, err := downloader.HashFile("path/to/patch.grf")
 // hash = "a899ed08439de698"
 ```
+
+### Authoring installed-result hashes (`gen-plist`)
+
+`src/cmd/gen-plist` fills the optional `file_hashes` field by hashing the **patch's own content** (entry content for `grf`, extracted file bytes for `raw`) using the patcher's own `pkg/grf`/`pkg/engine` code. No server-side apply is needed because the installed entry/file content is dictated by the patch:
+
+```sh
+go run ./cmd/gen-plist -in plist.json -patches /path/to/patches -out plist.json
+```
+
+- For each grf patch it records `{ grf_entry_path: content_hash }` for every entry the patch writes; an empty patch produces an empty map (not a version boundary).
+- For each raw patch it extracts and hashes every file as `file_hashes`.
+- The tool emits the original plist with the new fields; `hash`/`size` are left untouched. `hashfile` remains the hasher for patch archives.
 
 ## Notes (notes.json)
 

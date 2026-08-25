@@ -119,7 +119,8 @@ There is no separate `version` field in the manifest. The version IS the highest
 - `LocalVersion()` returns the highest ID from applied patches
 - `BuildQueue()` returns patches where `id > localVersion`
 - After applying patch N, appends patch metadata to `goro-patch.json`
-- `ValidateAgainstManifest()` compares local state against manifest for integrity
+- `ValidateAgainstDisk()` hashes installed GRF entries / raw files and compares them to the manifest's optional `file_hashes` for integrity (see PATCH_FORMAT.md)
+- `App.FullGRFCheck` (Settings) deep-scans every patcher-owned GRF by reading all entries
 
 This is simpler than maintaining a separate version counter. Each patch = one version bump.
 
@@ -131,6 +132,26 @@ On start, the patcher validates each applied patch's hash and size against the m
 2. Repair fetches manifest, finds first mismatching patch ID
 3. Downloads and applies all patches from that ID onward
 4. Updates `goro-patch.json` after each successful patch
+
+## File Name Validation (Security)
+
+`patch.Name` and `patch.Target` come straight from the (unauthenticated) manifest, so before either is joined onto the game directory they pass through `engine.SafePatchComponent()` (`pkg/engine/rawpatcher.go`). The manifest is the trust root: an attacker who controls it could otherwise write or read arbitrary paths on the user's machine. Validation is **fail-closed** (an invalid name errors the patch/check) and applied at every filesystem join:
+
+| Call site | Field | Direction |
+|---|---|---|
+| `App.acquirePatch` | `Name` | WRITE (patch download) |
+| `App.applyPatch` (grf branch) | `Target` | WRITE (merged GRF) |
+| `engine.CheckGRFIntegrity` | `Target` | READ (GRF check) |
+
+`SafePatchComponent` requires a single bare relative filename — no path segments — and rejects:
+
+- **Path separators** — after normalizing `\` → `/`: any `/` (covers `../` traversal, absolute paths, nested dirs, Windows drive letters like `C:\…`)
+- **Empty / `.` / `..`**
+- **`:`** — NTFS alternate-data-stream channel
+- **Trailing `.` or ` `** — Win32 trims these and can silently alias another file
+- **Windows reserved device names** — `CON`, `PRN`, `AUX`, `NUL`, `CONIN$`, `CONOUT$`, `CLOCK$`, `COM1–9`, `LPT1–9`, case-insensitive and with any extension (`NUL.txt`, `CON.grf`)
+
+The reserved-name, colon, and trailing-dot checks apply on **every OS** (not just Windows) so patcher behavior is identical across platforms, at the cost of a Windows-relevant-only restriction on Linux. The raw patch path (`engine.PatchRaw`) separately sanitizes every zip entry name via `engine.SanitizePath`.
 
 ## Notes
 

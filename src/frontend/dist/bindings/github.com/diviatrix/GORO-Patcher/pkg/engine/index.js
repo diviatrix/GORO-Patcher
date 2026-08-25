@@ -4,6 +4,8 @@
 
 export {
     ErrorEvent,
+    GRFCheckReport,
+    GRFCheckResult,
     ProgressEvent,
     RenderedNote
 } from "./models.js";

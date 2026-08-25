@@ -22,6 +22,7 @@ const inputExeName = document.getElementById('input-exe-name');
 const btnSaveSettings = document.getElementById('btn-settings-save');
 const btnCancelSettings = document.getElementById('btn-settings-cancel');
 const btnRepairSettings = document.getElementById('btn-repair-settings');
+const btnGrfCheck = document.getElementById('btn-grf-check-settings');
 
 let isChecking = false;
 let pollTimer = null;
@@ -183,6 +184,24 @@ btnCancelSettings.addEventListener('click', () => {
 btnRepairSettings.addEventListener('click', async () => {
     settingsSection.classList.add('hidden');
     btnStart.click();
+});
+
+btnGrfCheck.addEventListener('click', async () => {
+    statusEl.textContent = 'Full GRF check running...';
+    try {
+        const report = await App.FullGRFCheck();
+        if (report && report.ok) {
+            const grfs = report.grfs || [];
+            const detail = grfs.map((g) => g.name + ' (' + g.checked + ' files)').join(', ');
+            statusEl.textContent = detail ? 'GRF integrity OK: ' + detail : 'GRF integrity OK';
+        } else {
+            const grfs = report ? (report.grfs || []) : [];
+            const detail = grfs.map((g) => g.name + ': ' + (g.error || 'files corrupt: ' + (g.failed || []).join(', '))).join('; ');
+            onError({ code: 'ERR_GRF', message: 'Full GRF check failed: ' + detail, fatal: false });
+        }
+    } catch (e) {
+        onError({ code: 'ERR_GRF', message: 'GRF check error: ' + e.message, fatal: false });
+    }
 });
 
 async function init() {

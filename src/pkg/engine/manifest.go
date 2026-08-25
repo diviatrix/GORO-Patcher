@@ -16,12 +16,14 @@ type Manifest struct {
 }
 
 type Patch struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Hash   string `json:"hash"`
-	Size   int64  `json:"size"`
-	Type   string `json:"type"`
-	Target string `json:"target"`
+	ID         int               `json:"id"`
+	Name       string            `json:"name"`
+	Hash       string            `json:"hash"`
+	Size       int64             `json:"size"`
+	Type       string            `json:"type"`
+	Target     string            `json:"target"`
+	FileHashes map[string]string `json:"file_hashes,omitempty"`
+	Mutable    []string          `json:"mutable,omitempty"`
 }
 
 func ParseManifest(data []byte) (*Manifest, error) {

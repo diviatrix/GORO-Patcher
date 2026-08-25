@@ -185,7 +185,7 @@ func (a *App) runCheckCycle() {
 		return
 	}
 
-	if mismatchID, ok := engine.ValidateAgainstManifest(localState, manifest); !ok {
+	if mismatchID, ok := engine.ValidateAgainstDisk(a.gamePath, localState, manifest); !ok {
 		a.needsRepair = true
 		a.repairFromID = mismatchID
 		a.engine.SetState(engine.StateReady)
@@ -309,7 +309,7 @@ func (a *App) runRepairCycle() {
 	mismatchID := a.repairFromID
 	if mismatchID <= 0 {
 
-		mismatchID, _ = engine.ValidateAgainstManifest(localState, manifest)
+		mismatchID, _ = engine.ValidateAgainstDisk(a.gamePath, localState, manifest)
 		if mismatchID < 0 {
 			a.engine.SetState(engine.StateReady)
 			a.setAlreadyUpToDate(engine.LocalVersion(localState))
@@ -436,7 +436,12 @@ func (a *App) acquirePatch(ctx context.Context, patchBaseURL string, patch engin
 		return "", fmt.Errorf("no patch_base_url in manifest")
 	}
 
-	downloadPath := filepath.Join(a.gamePath, patch.Name)
+	safeName, err := engine.SafePatchComponent(patch.Name)
+	if err != nil {
+		return "", err
+	}
+
+	downloadPath := filepath.Join(a.gamePath, safeName)
 	patchURL := patchBaseURL + patch.Name
 	if err := a.dl.Fetch(ctx, patchURL, downloadPath, nil); err != nil {
 		return "", fmt.Errorf("download: %w", err)
@@ -448,7 +453,11 @@ func (a *App) acquirePatch(ctx context.Context, patchBaseURL string, patch engin
 func (a *App) applyPatch(patch engine.Patch, patchPath string, totalPatches int, currentPatch int) error {
 	switch patch.Type {
 	case "grf":
-		grfPath := filepath.Join(a.gamePath, patch.Target)
+		target, err := engine.SafePatchComponent(patch.Target)
+		if err != nil {
+			return err
+		}
+		grfPath := filepath.Join(a.gamePath, target)
 
 		var lastUpdate time.Time
 		grfProgress := func(current, total int, filename string) {
@@ -478,10 +487,32 @@ func (a *App) applyPatch(patch engine.Patch, patchPath string, totalPatches int,
 		if err != nil {
 			return fmt.Errorf("merged GRF is corrupt: %w", err)
 		}
-		merged.Close()
+		defer merged.Close()
+
+		for entry, h := range patch.FileHashes {
+			data, err := merged.ReadFile(entry)
+			if err != nil {
+				return fmt.Errorf("entry %s missing after apply: %w", entry, err)
+			}
+			if downloader.HashBytes(data) != h {
+				return fmt.Errorf("entry %s content mismatch after apply", entry)
+			}
+		}
 		return nil
 	case "raw":
-		return engine.PatchRaw(a.gamePath, patchPath)
+		if err := engine.PatchRaw(a.gamePath, patchPath); err != nil {
+			return err
+		}
+		for f, h := range patch.FileHashes {
+			s := engine.SanitizePath(f)
+			if s == "" || s != f {
+				continue
+			}
+			if err := downloader.VerifyFile(filepath.Join(a.gamePath, s), h); err != nil {
+				return fmt.Errorf("installed file %s verification failed: %w", s, err)
+			}
+		}
+		return nil
 	default:
 		return fmt.Errorf("unknown patch type: %s", patch.Type)
 	}
@@ -580,6 +611,31 @@ func (a *App) CancelDownload() error {
 		a.cancelFn()
 	}
 	return nil
+}
+
+func (a *App) FullGRFCheck() (engine.GRFCheckReport, error) {
+	state, err := engine.ReadLocalState(a.gamePath)
+	if err != nil {
+		return engine.GRFCheckReport{}, err
+	}
+
+	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
+	defer cancel()
+	manifest, err := a.fetchManifest(ctx)
+	if err != nil {
+		return engine.GRFCheckReport{}, err
+	}
+
+	report := engine.GRFCheckReport{Full: true}
+	report.OK = true
+	for _, target := range engine.GRFTargets(state, manifest) {
+		res := engine.CheckGRFIntegrity(a.gamePath, target)
+		report.GRFs = append(report.GRFs, res)
+		if !res.OK {
+			report.OK = false
+		}
+	}
+	return report, nil
 }
 
 func (a *App) handleError(code, message string, fatal bool) {

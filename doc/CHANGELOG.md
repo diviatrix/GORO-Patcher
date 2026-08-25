@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Security
+
+- **Manifest filename hardening** — `patch.Name` and `patch.Target` (both manifest-controlled) are now validated by `engine.SafePatchComponent()` before any join onto the game directory. Requires a bare relative filename and rejects path separators (`../`, absolute, nested), empty/`.`/`..`, `:` (NTFS ADS), trailing `.`/space, and Windows reserved device names (`CON`, `NUL`, `AUX`, `PRN`, `CONIN$`, `CONOUT$`, `CLOCK$`, `COM1–9`, `LPT1–9`). Fail-closed and applied to the patch download (WRITE), merged GRF write, and GRF-check read paths. See ARCHITECTURE.md → "File Name Validation (Security)".
+
 ## [0.0.2] - 2026-08-08
 
 ### Features

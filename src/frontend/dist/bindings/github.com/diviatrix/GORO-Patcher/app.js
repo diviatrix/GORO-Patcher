@@ -41,6 +41,15 @@ export function EmitProgress(evt) {
 }
 
 /**
+ * @returns {$CancellablePromise<engine$0.GRFCheckReport>}
+ */
+export function FullGRFCheck() {
+    return $Call.ByID(1512166295).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType0($result);
+    }));
+}
+
+/**
  * @returns {$CancellablePromise<string>}
  */
 export function GetExeName() {
@@ -66,7 +75,7 @@ export function GetManifestURL() {
  */
 export function GetNotes() {
     return $Call.ByID(84666500).then(/** @type {($result: any) => any} */(($result) => {
-        $result[0] = $$createType1($result[0]);
+        $result[0] = $$createType2($result[0]);
         return $result;
     }));
 }
@@ -76,7 +85,7 @@ export function GetNotes() {
  */
 export function GetProgress() {
     return $Call.ByID(997636720).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType2($result);
+        return $$createType3($result);
     }));
 }
 
@@ -140,6 +149,7 @@ export function StartRepair() {
 }
 
 // Private type creation functions
-const $$createType0 = engine$0.RenderedNote.createFrom;
-const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = $models.ProgressInfo.createFrom;
+const $$createType0 = engine$0.GRFCheckReport.createFrom;
+const $$createType1 = engine$0.RenderedNote.createFrom;
+const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = $models.ProgressInfo.createFrom;

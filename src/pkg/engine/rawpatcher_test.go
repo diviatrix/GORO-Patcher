@@ -120,9 +120,63 @@ func TestSanitizePath(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := sanitizePath(tt.input)
+		got := SanitizePath(tt.input)
 		if got != tt.want {
 			t.Errorf("sanitizePath(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestSafePatchComponent(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+		ok    bool
+	}{
+		{"patch_0.grf", "patch_0.grf", true},
+		{"myserver.grf", "myserver.grf", true},
+		{"patch_5.zip", "patch_5.zip", true},
+
+		{"", "", false},
+		{".", "", false},
+		{"..", "", false},
+		{"../secret.grf", "", false},
+		{"../../etc/x.grf", "", false},
+		{"/absolute.grf", "", false},
+		{"a/b.grf", "", false},
+		{"a\\b.grf", "", false},
+		{"C:\\outside.grf", "", false},
+		{"dir/../escape.grf", "", false},
+
+		// Windows namespace hardening (rejected uniformly).
+		{"NUL", "", false},
+		{"nul.grf", "", false},
+		{"CON.txt", "", false},
+		{"aux.zip", "", false},
+		{"CONIN$", "", false},
+		{"LPT1", "", false},
+		{"clone.grf", "clone.grf", true},
+		{"mycon.zip", "mycon.zip", true},
+		{"foo.", "", false},
+		{"foo ", "", false},
+		{"a:b.grf", "", false},
+		{"item:stream.lub", "", false},
+	}
+
+	for _, tt := range tests {
+		got, err := SafePatchComponent(tt.input)
+		if tt.ok {
+			if err != nil {
+				t.Errorf("SafePatchComponent(%q) unexpected error: %v", tt.input, err)
+				continue
+			}
+			if got != tt.want {
+				t.Errorf("SafePatchComponent(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		} else {
+			if err == nil {
+				t.Errorf("SafePatchComponent(%q) expected rejection, got %q", tt.input, got)
+			}
 		}
 	}
 }

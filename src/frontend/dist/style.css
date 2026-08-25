@@ -487,6 +487,20 @@ font-size: 12px;
     box-shadow: 0 0 8px rgba(211, 47, 47, 0.4);
 }
 
+#btn-grf-check-settings {
+    background: transparent;
+    color: var(--ro-gold-bright);
+    border: 1px solid var(--ro-border-gold);
+    font-family: 'MedievalSharp', cursive;
+    padding: 6px 16px;
+    font-size: 12px;
+}
+
+#btn-grf-check-settings:hover {
+    color: #ffffff;
+    border-color: var(--ro-gold);
+}
+
 #btn-start.repair {
     background: linear-gradient(180deg, #8b0000 0%, #5d0000 100%);
     color: var(--ro-parchment);

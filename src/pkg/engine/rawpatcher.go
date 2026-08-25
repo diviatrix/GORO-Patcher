@@ -22,7 +22,7 @@ func PatchRaw(gamePath, zipPath string) error {
 			continue
 		}
 
-		name := sanitizePath(file.Name)
+		name := SanitizePath(file.Name)
 		if name == "" {
 			continue
 		}
@@ -70,7 +70,7 @@ func PatchRaw(gamePath, zipPath string) error {
 	return nil
 }
 
-func sanitizePath(path string) string {
+func SanitizePath(path string) string {
 
 	result := make([]byte, len(path))
 	for i, b := range []byte(path) {
@@ -103,6 +103,45 @@ func sanitizePath(path string) string {
 	}
 
 	return strings.Join(clean, "/")
+}
+
+// SafePatchComponent validates a single manifest-supplied filename (patch.Name,
+// patch.Target) before it is joined onto the game directory. It must be a bare
+// relative filename with no path separators; anything else is rejected so a
+// tampered manifest cannot write or read outside the game directory. It also
+// rejects Windows namespace hazards (reserved device names, trailing dots or
+// spaces, and the ADS colon) uniformly on every OS so behavior stays identical.
+func SafePatchComponent(name string) (string, error) {
+	normalized := strings.ReplaceAll(name, "\\", "/")
+	if normalized == "" || normalized == "." || normalized == ".." {
+		return "", fmt.Errorf("invalid patch filename %q", name)
+	}
+	if strings.Contains(normalized, "/") {
+		return "", fmt.Errorf("patch filename %q must be a bare filename without path separators", name)
+	}
+	if strings.Contains(name, ":") {
+		return "", fmt.Errorf("patch filename %q must not contain ':' (NTFS alternate data stream)", name)
+	}
+	if strings.TrimRight(name, ". ") != name {
+		return "", fmt.Errorf("patch filename %q must not end with a dot or space", name)
+	}
+	lower := strings.ToLower(name)
+	for _, reserved := range windowsReservedNames {
+		if lower == reserved || strings.HasPrefix(lower, reserved+".") {
+			return "", fmt.Errorf("patch filename %q is a reserved name on Windows", name)
+		}
+	}
+	return name, nil
+}
+
+// windowsReservedNames are the device names Win32 treats specially regardless of
+// case or a following extension (NUL, NUL.txt, CON, CONIN$, ...). Rejected
+// uniformly to keep patcher behavior identical across platforms.
+var windowsReservedNames = []string{
+	"con", "prn", "aux", "nul",
+	"conin$", "conout$", "clock$",
+	"com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
+	"lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
 }
 
 func copyFile(src, dst string) error {
