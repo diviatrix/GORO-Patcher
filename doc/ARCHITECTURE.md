@@ -94,16 +94,16 @@ Events are still used for `patch_already_updated` as a legacy fallback, but prog
 GRF patching uses atomic rename with backup:
 
 ```
-1. SaveAs(data.grf.patching)   — write new GRF to temp file
-2. Rename(data.grf → .bak)     — backup original
-3. Rename(.patching → data.grf) — activate new
+1. SaveAs(myserver.grf.patching)   — write new GRF to temp file
+2. Rename(myserver.grf → .bak)     — backup original
+3. Rename(.patching → myserver.grf) — activate new
 4. Remove(.bak)                 — cleanup
 ```
 
 If killed at any point:
-- During 1: `.patching` partial, `data.grf` untouched → `.patching` deleted on restart
-- Between 2-3: `data.grf` gone, `.bak` has good copy → restored on restart
-- During 4: `data.grf` is good, `.bak` exists → deleted on restart
+- During 1: `.patching` partial, `myserver.grf` untouched → `.patching` deleted on restart
+- Between 2-3: `myserver.grf` gone, `.bak` has good copy → restored on restart
+- During 4: `myserver.grf` is good, `.bak` exists → deleted on restart
 
 On startup, `CleanupStaleFiles()`:
 - Deletes `.patching` and `.new` files

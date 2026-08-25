@@ -293,68 +293,69 @@ func (g *GRF) SaveAs(dest string) error {
 	}
 	defer f.Close()
 
-	var allEntries []FileEntry
-	var dataBlocks [][]byte
-	currentOffset := uint32(0)
-
 	names := make([]string, 0, len(g.entries))
 	for name := range g.entries {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
+	type entryDef struct {
+		srcOffset uint32
+		meta      FileEntry
+	}
+	defs := make([]entryDef, 0, len(names))
+	ftSeekOffset := uint32(0)
 	for _, name := range names {
 		entry := g.entries[name]
-		newEntry := *entry
-		newEntry.Offset = currentOffset
+		meta := *entry
+		meta.Offset = ftSeekOffset
 
-		var data []byte
+		dataLen := int(entry.CompressedSize)
 		if pending, ok := g.pendingData[name]; ok {
-			data = pending
-		} else {
-			dataOffset := int64(entry.Offset) + int64(grfHeaderSize)
-			if _, err := g.file.Seek(dataOffset, io.SeekStart); err != nil {
-				return fmt.Errorf("seek %s: %w", name, err)
-			}
-			compressed := make([]byte, entry.CompressedSize)
-			if _, err := io.ReadFull(g.file, compressed); err != nil {
-				return fmt.Errorf("read %s: %w", name, err)
-			}
-			data = compressed
+			dataLen = len(pending)
 		}
 
-		newEntry.CompressedSizeAligned = uint32(len(data))
-		newEntry.CompressedSize = uint32(len(data))
+		meta.CompressedSize = uint32(dataLen)
+		meta.CompressedSizeAligned = uint32(dataLen)
+		ftSeekOffset += uint32(dataLen)
 
-		allEntries = append(allEntries, newEntry)
-		dataBlocks = append(dataBlocks, data)
-		currentOffset += uint32(len(data))
+		defs = append(defs, entryDef{srcOffset: entry.Offset, meta: meta})
 	}
-
-	fileTableData := buildFileTable(allEntries)
-	compressedFT := compressZlibData(fileTableData)
-
-	ftSeekOffset := currentOffset
 
 	header := make([]byte, grfHeaderSize)
 	copy(header, "Master of Magic")
 	header[15] = 0
-
 	header[0x2A] = 0x00
 	header[0x2B] = 0x02
-
-	binary.LittleEndian.PutUint32(header[0x26:0x2A], uint32(len(allEntries))+7)
-
+	binary.LittleEndian.PutUint32(header[0x26:0x2A], uint32(len(names))+7)
 	binary.LittleEndian.PutUint32(header[0x1E:0x22], ftSeekOffset)
 	if _, err := f.Write(header); err != nil {
 		return err
 	}
 
-	for _, block := range dataBlocks {
-		if _, err := f.Write(block); err != nil {
-			return err
+	for i, name := range names {
+		if pending, ok := g.pendingData[name]; ok {
+			if _, err := f.Write(pending); err != nil {
+				return err
+			}
+			continue
+		}
+		def := defs[i]
+		dataOffset := int64(def.srcOffset) + int64(grfHeaderSize)
+		if _, err := g.file.Seek(dataOffset, io.SeekStart); err != nil {
+			return fmt.Errorf("seek %s: %w", name, err)
+		}
+		if _, err := io.CopyN(f, g.file, int64(def.meta.CompressedSize)); err != nil {
+			return fmt.Errorf("copy %s: %w", name, err)
 		}
 	}
+
+	allEntries := make([]FileEntry, 0, len(defs))
+	for _, def := range defs {
+		allEntries = append(allEntries, def.meta)
+	}
+	fileTableData := buildFileTable(allEntries)
+	compressedFT := compressZlibData(fileTableData)
 
 	binary.Write(f, binary.LittleEndian, uint32(len(compressedFT)))
 	binary.Write(f, binary.LittleEndian, uint32(len(fileTableData)))

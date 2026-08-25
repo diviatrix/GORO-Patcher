@@ -182,13 +182,13 @@ func TestSafePatchComponent(t *testing.T) {
 
 func TestCleanupStaleFiles(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "data.grf.patching"), []byte("stale"), 0644)
+	os.WriteFile(filepath.Join(dir, "myserver.grf.patching"), []byte("stale"), 0644)
 	os.WriteFile(filepath.Join(dir, "patcher.exe.new"), []byte("stale"), 0644)
 	os.WriteFile(filepath.Join(dir, "valid.txt"), []byte("keep"), 0644)
 
 	CleanupStaleFiles(dir)
 
-	if _, err := os.Stat(filepath.Join(dir, "data.grf.patching")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, "myserver.grf.patching")); !os.IsNotExist(err) {
 		t.Error("expected .patching to be deleted")
 	}
 	if _, err := os.Stat(filepath.Join(dir, "patcher.exe.new")); !os.IsNotExist(err) {
@@ -202,18 +202,18 @@ func TestCleanupStaleFiles(t *testing.T) {
 func TestCleanupStaleFilesRestoresBak(t *testing.T) {
 	dir := t.TempDir()
 
-	os.WriteFile(filepath.Join(dir, "data.grf.bak"), []byte("good data here"), 0644)
+	os.WriteFile(filepath.Join(dir, "myserver.grf.bak"), []byte("good data here"), 0644)
 
 	CleanupStaleFiles(dir)
 
-	data, err := os.ReadFile(filepath.Join(dir, "data.grf"))
+	data, err := os.ReadFile(filepath.Join(dir, "myserver.grf"))
 	if err != nil {
-		t.Fatalf("expected data.grf to be restored: %v", err)
+		t.Fatalf("expected myserver.grf to be restored: %v", err)
 	}
 	if string(data) != "good data here" {
 		t.Error("restored data does not match .bak")
 	}
-	if _, err := os.Stat(filepath.Join(dir, "data.grf.bak")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, "myserver.grf.bak")); !os.IsNotExist(err) {
 		t.Error("expected .bak to be deleted after restore")
 	}
 }
@@ -223,16 +223,16 @@ func TestCleanupStaleFilesDeletesBakWhenTargetOK(t *testing.T) {
 
 	grfData := make([]byte, 2048)
 	copy(grfData, "Master of Magic")
-	os.WriteFile(filepath.Join(dir, "data.grf"), grfData, 0644)
-	os.WriteFile(filepath.Join(dir, "data.grf.bak"), []byte("old backup"), 0644)
+	os.WriteFile(filepath.Join(dir, "myserver.grf"), grfData, 0644)
+	os.WriteFile(filepath.Join(dir, "myserver.grf.bak"), []byte("old backup"), 0644)
 
 	CleanupStaleFiles(dir)
 
-	if _, err := os.Stat(filepath.Join(dir, "data.grf.bak")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, "myserver.grf.bak")); !os.IsNotExist(err) {
 		t.Error("expected .bak to be deleted when target is valid")
 	}
 
-	info, _ := os.Stat(filepath.Join(dir, "data.grf"))
+	info, _ := os.Stat(filepath.Join(dir, "myserver.grf"))
 	if info.Size() != 2048 {
 		t.Error("target should be untouched")
 	}
@@ -241,14 +241,14 @@ func TestCleanupStaleFilesDeletesBakWhenTargetOK(t *testing.T) {
 func TestCleanupStaleFilesRestoresCorruptGRF(t *testing.T) {
 	dir := t.TempDir()
 
-	os.WriteFile(filepath.Join(dir, "data.grf"), []byte("corrupt"), 0644)
-	os.WriteFile(filepath.Join(dir, "data.grf.bak"), make([]byte, 2048), 0644)
+	os.WriteFile(filepath.Join(dir, "myserver.grf"), []byte("corrupt"), 0644)
+	os.WriteFile(filepath.Join(dir, "myserver.grf.bak"), make([]byte, 2048), 0644)
 
 	CleanupStaleFiles(dir)
 
-	info, err := os.Stat(filepath.Join(dir, "data.grf"))
+	info, err := os.Stat(filepath.Join(dir, "myserver.grf"))
 	if err != nil {
-		t.Fatalf("expected data.grf to be restored: %v", err)
+		t.Fatalf("expected myserver.grf to be restored: %v", err)
 	}
 	if info.Size() != 2048 {
 		t.Error("expected restored file to match .bak size")

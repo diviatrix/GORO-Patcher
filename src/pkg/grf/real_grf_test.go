@@ -34,7 +34,7 @@ func TestRealGRFPatch(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	targetPath := filepath.Join(tmpDir, "data.grf")
+	targetPath := filepath.Join(tmpDir, "myserver.grf")
 
 	grfData, err := os.ReadFile(grfPath)
 	if err != nil {
@@ -92,7 +92,7 @@ func TestRealGRFMerge(t *testing.T) {
 	})
 	os.WriteFile(patchGrfPath, patchGrf, 0644)
 
-	targetPath := filepath.Join(tmpDir, "data.grf")
+	targetPath := filepath.Join(tmpDir, "myserver.grf")
 	grfData, _ := os.ReadFile(grfPath)
 	os.WriteFile(targetPath, grfData, 0644)
 

@@ -68,7 +68,7 @@ Files are extracted to the game folder. Existing files are backed up to `.bak` b
 
 | Type | Use for | `target` field |
 |------|---------|----------------|
-| `grf` | Sprites, models, textures, sounds — files inside GRF | Your GRF filename (e.g. `sdata.grf`, `custom.grf`) |
+| `grf` | Sprites, models, textures, sounds — files inside GRF | Your GRF filename (e.g. `myserver.grf`, `custom.grf`) |
 | `raw` | Exe, DLLs, LUBs — files outside GRF | Relative path in game dir |
 
 ## Step 3: Calculate Hash and Size
@@ -104,7 +104,7 @@ Copy the hash and size into your manifest.
       "hash": "GENERATED_HASH",
       "size": 200627214,
       "type": "grf",
-      "target": "sdata.grf"
+      "target": "myserver.grf"
     }
   ]
 }
@@ -120,7 +120,7 @@ Copy the hash and size into your manifest.
 | `patches[].type` | `"grf"` or `"raw"` |
 | `patches[].target` | **Your GRF filename** or relative path — whatever your server uses |
 
-The `target` field is the file that gets patched. Use whatever GRF name your server uses (e.g. `sdata.grf`, `custom.grf`, `data.grf`, etc.). The patcher creates it if it doesn't exist.
+The `target` field is the file that gets patched. Use whatever GRF name your server uses (e.g. `myserver.grf`, `custom.grf`, etc.). The patcher creates it if it doesn't exist.
 
 ## Step 5: Configure the Patcher
 
@@ -160,7 +160,7 @@ Players just run the patcher. It checks for updates, downloads, applies, and ena
 {
   "patch_base_url": "https://patches.yourserver.com/",
   "patches": [
-    { "id": 1, "name": "patch_0.grf", "hash": "GENERATED_HASH", "size": 200627214, "type": "grf", "target": "sdata.grf" },
+    { "id": 1, "name": "patch_0.grf", "hash": "GENERATED_HASH", "size": 200627214, "type": "grf", "target": "myserver.grf" },
     { "id": 2, "name": "patch_1.zip", "hash": "GENERATED_HASH", "size": 542, "type": "raw", "target": "System/itemInfo.lub" }
   ]
 }

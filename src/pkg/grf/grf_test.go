@@ -138,7 +138,7 @@ func TestPatchGRFFromGRF(t *testing.T) {
 
 func TestPatchGRFFromGRFNoTarget(t *testing.T) {
 	dir := t.TempDir()
-	targetPath := filepath.Join(dir, "data.grf")
+	targetPath := filepath.Join(dir, "myserver.grf")
 
 	patchGrf := buildTestGRFWithFiles(t, map[string][]byte{
 		"data\\test.txt": []byte("hello world"),

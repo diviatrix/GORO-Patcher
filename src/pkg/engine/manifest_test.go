@@ -16,7 +16,7 @@ func TestParseManifest(t *testing.T) {
 				"hash": "8f4e3c2b",
 				"size": 1048576,
 				"type": "grf",
-				"target": "data.grf",
+				"target": "myserver.grf",
 				"file_hashes": { "data/items.lub": "abcd1234" }
 			},
 			{

@@ -15,7 +15,7 @@ plist.json address for patcher itself is specified in `goro-config.json`.
       "hash": "GENERATED_HASH",
       "size": 200627214,
       "type": "grf",
-      "target": "data.grf"
+      "target": "myserver.grf"
     },
     {
       "id": 2,
