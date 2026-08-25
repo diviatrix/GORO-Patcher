@@ -6,15 +6,12 @@ import (
 )
 
 type Manifest struct {
-	PatchBaseURL      string  `json:"patch_base_url"`
-	AllowStartOnError bool    `json:"allow_start_on_error"`
-	NewsURL           string  `json:"news_url"`
-	PatcherURL        string  `json:"patcher_url"`
-	PatcherHash       string  `json:"patcher_hash"`
-	PatcherVersion    int     `json:"patcher_version"`
-	PatcherSize       int64   `json:"patcher_size"`
-	Signature         string  `json:"signature,omitempty"`
-	Patches           []Patch `json:"patches"`
+	PatchBaseURL   string  `json:"patch_base_url"`
+	PatcherURL     string  `json:"patcher_url"`
+	PatcherHash    string  `json:"patcher_hash"`
+	PatcherVersion int     `json:"patcher_version"`
+	Signature      string  `json:"signature,omitempty"`
+	Patches        []Patch `json:"patches"`
 }
 
 type Patch struct {
@@ -36,16 +33,6 @@ func ParseManifest(data []byte) (*Manifest, error) {
 	return &m, nil
 }
 
-func (m *Manifest) MaxPatchID() int {
-	max := 0
-	for _, p := range m.Patches {
-		if p.ID > max {
-			max = p.ID
-		}
-	}
-	return max
-}
-
 func BuildQueue(m *Manifest, localVersion int) []Patch {
 	if m == nil {
 		return nil
@@ -63,10 +50,6 @@ func BuildQueue(m *Manifest, localVersion int) []Patch {
 	})
 
 	return queue
-}
-
-func NeedsUpdate(m *Manifest, localVersion int) bool {
-	return m != nil && localVersion < m.MaxPatchID()
 }
 
 func NeedsSelfUpdate(m *Manifest) bool {

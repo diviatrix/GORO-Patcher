@@ -37,11 +37,3 @@ func VerifyFile(path, expectedHash string) error {
 	}
 	return nil
 }
-
-func VerifyBytes(data []byte, expectedHash string) error {
-	actual := HashBytes(data)
-	if actual != expectedHash {
-		return fmt.Errorf("hash mismatch: expected %s, got %s", expectedHash, actual)
-	}
-	return nil
-}

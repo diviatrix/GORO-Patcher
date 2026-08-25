@@ -1,3 +1,3 @@
 package engine
 
-const CurrentPatcherVersion = 1
+const CurrentPatcherVersion = 2

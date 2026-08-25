@@ -7,7 +7,7 @@ info:
   description: "A program that does X"
   copyright: "(c) 2025, My Company"
   comments: "Some Product Comments"
-  version: "0.0.1"
+  version: "0.0.3"
 
 dev_mode:
   root_path: .

@@ -95,6 +95,9 @@ func SanitizePath(path string) string {
 		if part == ".." || part == "." || part == "" {
 			continue
 		}
+		if strings.Contains(part, ":") {
+			return ""
+		}
 		clean = append(clean, part)
 	}
 

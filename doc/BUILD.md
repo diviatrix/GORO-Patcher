@@ -95,7 +95,7 @@ Before shipping a release, the publisher must:
    it. The public key is embedded in the binary and is safe to distribute.
 2. Bump `pkg/engine/version.go` (`CurrentPatcherVersion`) and record the same
    integer as `patcher_version` in the manifest.
-3. Compute the patcher binary's **SHA-256** (not XXHash64) for `patcher_hash`:
+3. Compute the patcher binary's **SHA-256** for `patcher_hash`:
    ```bash
    hashfile sha256 build/GORO-Patcher
    ```

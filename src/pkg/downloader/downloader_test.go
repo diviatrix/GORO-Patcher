@@ -151,3 +151,49 @@ func TestFetchContextCancel(t *testing.T) {
 		t.Error("expected error for cancelled context")
 	}
 }
+
+func TestFetchRangeUnsatisfiableResets(t *testing.T) {
+	content := []byte("0123456789abcdef")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Range") != "" {
+			w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
+			return
+		}
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))
+		w.Write(content)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "resume.bin")
+	os.WriteFile(dest, content[:4], 0644)
+
+	dl := New(1)
+	if err := dl.Fetch(context.Background(), server.URL, dest, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != string(content) {
+		t.Errorf("got %q, want %q", string(data), string(content))
+	}
+}
+
+func TestFetchTruncatedBodyErrors(t *testing.T) {
+	content := []byte("0123456789abcdef")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(content)))
+		w.Write(content[:8])
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	dl := New(0)
+	err := dl.Fetch(context.Background(), server.URL, filepath.Join(dir, "test.bin"), nil)
+	if err == nil {
+		t.Error("expected error for truncated body")
+	}
+}

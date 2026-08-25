@@ -15,7 +15,7 @@
   <div class="header-inner">
     <div class="header-left">
       <span class="logo">GORO-Patcher</span>
-      <span class="header-tag">v<span id="latest-ver">0.0.2</span></span>
+      <span class="header-tag">v<span id="latest-ver">0.0.3</span></span>
 
     </div>
     <nav class="header-nav">
@@ -69,11 +69,11 @@
     <div class="about-cols">
       <div class="about-col">
         <h3 class="about-heading">Patching</h3>
-        <p>Downloads patches from your URL, verifies with <strong>XXHash64</strong>, applies safely. GRF 2.0 merge with atomic writes and automatic backup restoration.</p>
+        <p>Downloads patches from your URL, verifies with <strong>SHA-256</strong>, applies safely. GRF 2.0 merge with atomic writes and automatic backup restoration. The manifest itself is Ed25519-signed, so path names and patcher binaries cannot be tampered with.</p>
       </div>
       <div class="about-col">
         <h3 class="about-heading">Distribution</h3>
-        <p>Build one manifest, serve over HTTP/HTTPS. Download resume, retry with backoff, self-update &mdash; all built in. Push patcher builds alongside game patches.</p>
+        <p>Build one signed manifest, serve over HTTPS. Download resume, retry with backoff, self-update &mdash; all built in. Release builds fetch over HTTPS only, with no-downgrade self-updates. Push patcher builds alongside game patches.</p>
       </div>
       <div class="about-col">
         <h3 class="about-heading">Customization</h3>
@@ -121,7 +121,7 @@
         </span>
         <div>
           <span class="feature-name">Hash Verification</span>
-          <span class="feature-desc">XXHash64 checksums on every file. Corrupted downloads detected and re-fetched.</span>
+          <span class="feature-desc">SHA-256 checksums on every patch, raw file, and the patcher binary itself. Corrupted downloads detected and re-fetched.</span>
         </div>
       </div>
       <div class="feature">
@@ -139,7 +139,7 @@
         </span>
         <div>
           <span class="feature-name">Self-Update</span>
-          <span class="feature-desc">Patcher updates itself from the manifest. Push new builds with game patches.</span>
+          <span class="feature-desc">Patcher updates itself from a signed manifest over HTTPS, with a no-downgrade version gate. Push new builds with game patches.</span>
         </div>
       </div>
       <div class="feature">

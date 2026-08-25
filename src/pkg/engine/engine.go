@@ -5,36 +5,14 @@ import (
 	"sync"
 )
 
-type ProgressEvent struct {
-	Status       string  `json:"status"`
-	CurrentFile  string  `json:"currentFile"`
-	FilePercent  float64 `json:"filePercent"`
-	TotalPercent float64 `json:"totalPercent"`
-	Speed        string  `json:"speed"`
-}
-
-type ErrorEvent struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Fatal   bool   `json:"fatal"`
-}
-
-type EventEmitter interface {
-	EmitProgress(evt ProgressEvent)
-	EmitError(evt ErrorEvent)
-}
-
 type Engine struct {
 	mu    sync.RWMutex
 	state State
-
-	emitter EventEmitter
 }
 
-func New(emitter EventEmitter) *Engine {
+func New() *Engine {
 	return &Engine{
-		state:   StateIdle,
-		emitter: emitter,
+		state: StateIdle,
 	}
 }
 
@@ -53,16 +31,4 @@ func (e *Engine) SetState(next State) error {
 	}
 	e.state = next
 	return nil
-}
-
-func (e *Engine) EmitProgress(evt ProgressEvent) {
-	if e.emitter != nil {
-		e.emitter.EmitProgress(evt)
-	}
-}
-
-func (e *Engine) EmitError(evt ErrorEvent) {
-	if e.emitter != nil {
-		e.emitter.EmitError(evt)
-	}
 }

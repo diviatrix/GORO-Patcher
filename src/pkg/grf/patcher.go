@@ -89,10 +89,6 @@ func patchGRFFromZip(grfPath, zipPath string, progress ProgressFunc) error {
 	return target.Save(grfPath)
 }
 
-func MergeGRF(targetPath, sourcePath string) error {
-	return MergeGRFWithProgress(targetPath, sourcePath, nil)
-}
-
 func MergeGRFWithProgress(targetPath, sourcePath string, progress ProgressFunc) error {
 	target, err := Open(targetPath)
 	if err != nil {

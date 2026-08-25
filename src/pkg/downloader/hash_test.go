@@ -73,19 +73,6 @@ func TestVerifyFile(t *testing.T) {
 	}
 }
 
-func TestVerifyBytes(t *testing.T) {
-	data := []byte("test data")
-	expected := HashBytes(data)
-
-	if err := VerifyBytes(data, expected); err != nil {
-		t.Errorf("expected match, got error: %v", err)
-	}
-
-	if err := VerifyBytes(data, "deadbeefdeadbeef"); err == nil {
-		t.Error("expected mismatch error")
-	}
-}
-
 func TestHashDeterministic(t *testing.T) {
 	data := []byte("deterministic test input 12345")
 	h1 := HashBytes(data)

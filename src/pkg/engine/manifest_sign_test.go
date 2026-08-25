@@ -13,7 +13,6 @@ func sampleManifest() *Manifest {
 		PatcherURL:     "https://cdn.example.com/patcher.exe",
 		PatcherHash:    "abc",
 		PatcherVersion: 2,
-		PatcherSize:    123,
 		Patches: []Patch{
 			{ID: 1, Name: "a.grf", Hash: "hash-a", Type: "grf", Target: "myserver.grf"},
 			{ID: 2, Name: "b.zip", Hash: "hash-b", Type: "raw"},

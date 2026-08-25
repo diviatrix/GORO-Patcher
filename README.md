@@ -11,7 +11,9 @@ Project page: https://goro.1337.plus/
 - GRF 2.0 merge (direct `.grf` or `.zip` → GRF)
 - Raw patch extraction (zip → game directory)
 - HTTP downloads with resume support
-- XXHash64 verification
+- SHA-256 verification everywhere
+- Crypto-signed manifests (Ed25519) + HTTPS-only release transports
+- Self-update with a no-downgrade version gate
 - Crash-safe atomic GRF writes
 - Auto-check on start
 - Patch integrity validation + Repair

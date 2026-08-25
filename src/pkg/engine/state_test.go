@@ -47,7 +47,7 @@ func TestStateString(t *testing.T) {
 }
 
 func TestSetStateInvalid(t *testing.T) {
-	e := New(nil)
+	e := New()
 	err := e.SetState(StateReady)
 	if err == nil {
 		t.Error("expected error for invalid transition IDLE -> READY")
@@ -55,7 +55,7 @@ func TestSetStateInvalid(t *testing.T) {
 }
 
 func TestSetStateValid(t *testing.T) {
-	e := New(nil)
+	e := New()
 	err := e.SetState(StateChecking)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)

@@ -36,6 +36,24 @@ func TestPatchRaw(t *testing.T) {
 	}
 }
 
+func TestSanitizePathRejectsDriveLetterAndADS(t *testing.T) {
+	cases := map[string]string{
+		"System/itemInfo.lub":      "System/itemInfo.lub",
+		"Nested\\path\\x.spr":      "Nested/path/x.spr",
+		"../escape.txt":            "escape.txt",
+		"sub/../file.txt":          "sub/file.txt",
+		"C:/Windows/evil.exe":      "",
+		"c:win.ini":                "",
+		"evil.txt:stream":          "",
+		"C:\\Windows\\system32\\x": "",
+	}
+	for in, want := range cases {
+		if got := SanitizePath(in); got != want {
+			t.Errorf("SanitizePath(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestPatchRawCreatesDirs(t *testing.T) {
 	gameDir := t.TempDir()
 	zipPath := createRawTestZip(t, map[string]string{

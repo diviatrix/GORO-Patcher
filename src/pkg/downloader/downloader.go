@@ -2,6 +2,7 @@ package downloader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,21 @@ import (
 )
 
 type ProgressFunc func(downloaded, total int64, speed float64)
+
+var errRangeUnsatisfiable = errors.New("range not satisfiable")
+
+const maxFetchBytes int64 = 32 << 20
+
+func readLimited(r io.Reader, limit int64) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("response exceeds %d byte limit", limit)
+	}
+	return data, nil
+}
 
 type Downloader struct {
 	client   *http.Client
@@ -33,7 +49,12 @@ func (d *Downloader) FetchBytes(ctx context.Context, url string) ([]byte, error)
 
 	if len(url) > 7 && url[:7] == "file://" {
 		path := url[7:]
-		return os.ReadFile(path)
+		f, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		return readLimited(f, maxFetchBytes)
 	}
 
 	var lastErr error
@@ -59,7 +80,7 @@ func (d *Downloader) FetchBytes(ctx context.Context, url string) ([]byte, error)
 			continue
 		}
 
-		data, err := io.ReadAll(resp.Body)
+		data, err := readLimited(resp.Body, maxFetchBytes)
 		resp.Body.Close()
 
 		if err != nil {
@@ -123,6 +144,29 @@ func (d *Downloader) Fetch(ctx context.Context, url, dest string, progress Progr
 }
 
 func (d *Downloader) fetchAttempt(ctx context.Context, url, dest string, offset int64, progress ProgressFunc) error {
+	for {
+		start := offset
+		err := d.writeResource(ctx, url, dest, offset, progress)
+		if err == nil {
+			return nil
+		}
+		if errors.Is(err, errRangeUnsatisfiable) {
+			if terr := os.Truncate(dest, 0); terr != nil && !os.IsNotExist(terr) {
+				return terr
+			}
+			offset = 0
+			continue
+		}
+		if start > 0 {
+			if terr := os.Truncate(dest, start); terr != nil && !os.IsNotExist(terr) {
+				return terr
+			}
+		}
+		return err
+	}
+}
+
+func (d *Downloader) writeResource(ctx context.Context, url, dest string, offset int64, progress ProgressFunc) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return err
@@ -139,13 +183,14 @@ func (d *Downloader) fetchAttempt(ctx context.Context, url, dest string, offset 
 	defer resp.Body.Close()
 
 	if offset > 0 && resp.StatusCode == http.StatusPartialContent {
-
-	} else if offset > 0 && resp.StatusCode == http.StatusOK {
-		offset = 0
+		// append resumed bytes
+	} else if resp.StatusCode == http.StatusOK {
+		if offset > 0 {
+			offset = 0
+		}
 	} else if offset > 0 && resp.StatusCode == http.StatusRequestedRangeNotSatisfiable {
-
-		return nil
-	} else if resp.StatusCode != http.StatusOK {
+		return errRangeUnsatisfiable
+	} else {
 		return fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
 	}
 
@@ -154,11 +199,9 @@ func (d *Downloader) fetchAttempt(ctx context.Context, url, dest string, offset 
 		total += offset
 	}
 
-	var flag int
+	flag := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
 	if offset > 0 {
 		flag = os.O_WRONLY | os.O_APPEND
-	} else {
-		flag = os.O_WRONLY | os.O_CREATE | os.O_TRUNC
 	}
 
 	f, err := os.OpenFile(dest, flag, 0644)
@@ -174,8 +217,7 @@ func (d *Downloader) fetchAttempt(ctx context.Context, url, dest string, offset 
 	for {
 		n, readErr := resp.Body.Read(buf)
 		if n > 0 {
-			_, writeErr := f.Write(buf[:n])
-			if writeErr != nil {
+			if _, writeErr := f.Write(buf[:n]); writeErr != nil {
 				return writeErr
 			}
 			downloaded += int64(n)
@@ -194,6 +236,9 @@ func (d *Downloader) fetchAttempt(ctx context.Context, url, dest string, offset 
 		}
 	}
 
+	if total > 0 && downloaded != total {
+		return fmt.Errorf("truncated transfer: got %d of %d bytes", downloaded, total)
+	}
 	return nil
 }
 

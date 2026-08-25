@@ -111,7 +111,7 @@ func ValidateAgainstDisk(gamePath string, state *LocalState, manifest *Manifest)
 			for entry, h := range p.FileHashes {
 				key := p.Target + "\x00" + entry
 				if cur, ok := lastGRF[key]; !ok || p.ID > cur.id {
-					lastGRF[key] = pendingCheck{kind: "grf-entry", grfTarget: p.Target, name: entry, hash: h, id: p.ID}
+					lastGRF[key] = pendingCheck{grfTarget: p.Target, name: entry, hash: h, id: p.ID}
 				}
 			}
 		case "raw":
@@ -121,7 +121,7 @@ func ValidateAgainstDisk(gamePath string, state *LocalState, manifest *Manifest)
 					continue
 				}
 				if cur, ok := lastRaw[s]; !ok || p.ID > cur.id {
-					lastRaw[s] = pendingCheck{kind: "raw-file", name: s, hash: h, id: p.ID}
+					lastRaw[s] = pendingCheck{name: s, hash: h, id: p.ID}
 				}
 			}
 		}
@@ -165,7 +165,6 @@ func ValidateAgainstDisk(gamePath string, state *LocalState, manifest *Manifest)
 }
 
 type pendingCheck struct {
-	kind      string
 	grfTarget string
 	name      string
 	hash      string

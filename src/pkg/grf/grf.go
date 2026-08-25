@@ -17,20 +17,11 @@ import (
 const grfHeaderSize = 0x2E
 
 type GRF struct {
-	header      grfHeader
 	entries     map[string]*FileEntry
 	pendingData map[string][]byte
 	filePath    string
 	file        *os.File
 	dataOffset  int64
-}
-
-type grfHeader struct {
-	Magic     [16]byte
-	Key       [8]byte
-	Reserved  [20]byte
-	Version   uint32
-	FileCount uint32
 }
 
 func Open(path string) (*GRF, error) {
@@ -50,7 +41,6 @@ func Open(path string) (*GRF, error) {
 		return nil, fmt.Errorf("invalid GRF magic")
 	}
 
-	version := binary.LittleEndian.Uint32(headerBuf[0x2A:0x2E]) >> 8
 	fileCount := int(binary.LittleEndian.Uint32(headerBuf[0x26:0x2A])) - 7
 
 	ftSeekOffset := binary.LittleEndian.Uint32(headerBuf[0x1E:0x22])
@@ -106,10 +96,6 @@ func Open(path string) (*GRF, error) {
 	dataOffset := int64(grfHeaderSize)
 
 	return &GRF{
-		header: grfHeader{
-			Version:   version,
-			FileCount: uint32(fileCount),
-		},
 		entries:    entryMap,
 		filePath:   path,
 		file:       f,

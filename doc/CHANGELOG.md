@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.0.3] - 2026-08-25
 
 ### Security
 
@@ -10,6 +10,18 @@
 - **SHA-256 integrity everywhere** — the non-cryptographic XXHash64 is removed entirely. Patch binaries, raw-patch/installed-file validation, and the self-update binary are all verified with SHA-256 (unified `pkg/downloader` functions); `hashfile` now emits SHA-256 by default. Cryptographic hashing resists the collision/preimage craft a 64-bit checksum could not.
 - **Self-update version gate** — the manifest's `patcher_version` must strictly exceed the running patcher's `CurrentPatcherVersion`; updates to the same or older versions (rollback/downgrade) are refused.
 - **Manifest filename hardening** — `patch.Name` and `patch.Target` (both manifest-controlled) are now validated by `engine.SafePatchComponent()` before any join onto the game directory. Requires a bare relative filename and rejects path separators (`../`, absolute, nested), empty/`.`/`..`, `:` (NTFS ADS), trailing `.`/space, and Windows reserved device names (`CON`, `NUL`, `AUX`, `PRN`, `CONIN$`, `CONOUT$`, `CLOCK$`, `COM1–9`, `LPT1–9`). Fail-closed and applied to the patch download (WRITE), merged GRF write, and GRF-check read paths. See ARCHITECTURE.md → "File Name Validation (Security)".
+
+### Fixes
+
+- **Raw-patch path traversal (Windows)** — `SanitizePath` now rejects `:` (drive letters / NTFS ADS) in zip entry names, so a crafted raw patch can no longer write outside the game directory.
+- **Downloader false-success on corrupt transfers** — a `416 Range Not Satisfiable` now resets and refetches fresh instead of returning success with a partial file; bodies that end before `Content-Length` are treated as errors; partial resumes roll back to the last known-good boundary. `FetchBytes` also enforces a 32 MiB response cap.
+
+### Internal
+
+- Remove the dead `EventEmitter` progress/error pipeline (App's `EmitProgress`/`EmitError` were no-ops; the UI polls `GetProgress`). Self-update now surfaces a restart failure instead of stalling on "Checking patcher update…".
+- Deduplicate the download→verify→apply loop between check and repair into `App.applyPatches`, replacing a hand-rolled O(n²) bubble sort with `sort.Slice` and dropping unused return values/params.
+- Drop production-dead symbols (`downloader.VerifyBytes`, `engine.NeedsUpdate`/`MaxPatchID`, `grf.MergeGRF`) and unread manifest fields (`allow_start_on_error`, `news_url`, `patcher_size`) and `pendingCheck.kind`.
+- Skip redundant re-hashing of verified cached patch archives on repeated runs.
 
 ## [0.0.2] - 2026-08-08
 

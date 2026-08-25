@@ -49,11 +49,8 @@ func TestParseManifest(t *testing.T) {
 	if m.Patches[0].FileHashes["data/items.lub"] != "abcd1234" {
 		t.Errorf("patch[0].file_hashes[data/items.lub]: got %s, want abcd1234", m.Patches[0].FileHashes["data/items.lub"])
 	}
-	if len(m.Patches[1].Mutable) != 1 || m.Patches[1].Mutable[0] != "config.ini" {
+	if mutable := m.Patches[1].Mutable; len(mutable) != 1 || mutable[0] != "config.ini" {
 		t.Errorf("patch[1].mutable: got %v, want [config.ini]", m.Patches[1].Mutable)
-	}
-	if m.MaxPatchID() != 105 {
-		t.Errorf("MaxPatchID: got %d, want 105", m.MaxPatchID())
 	}
 }
 
@@ -121,22 +118,6 @@ func TestBuildQueueSort(t *testing.T) {
 func TestBuildQueueNil(t *testing.T) {
 	if q := BuildQueue(nil, 0); q != nil {
 		t.Errorf("expected nil, got %v", q)
-	}
-}
-
-func TestNeedsUpdate(t *testing.T) {
-	m := &Manifest{Patches: []Patch{{ID: 105}}}
-	if !NeedsUpdate(m, 104) {
-		t.Error("expected true for local < remote")
-	}
-	if NeedsUpdate(m, 105) {
-		t.Error("expected false for local == remote")
-	}
-	if NeedsUpdate(m, 200) {
-		t.Error("expected false for local > remote")
-	}
-	if NeedsUpdate(nil, 0) {
-		t.Error("expected false for nil manifest")
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
@@ -59,7 +60,7 @@ func (a *App) SetApp(app *application.App) {
 
 func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	a.ctx = ctx
-	a.engine = engine.New(a)
+	a.engine = engine.New()
 	a.dl = downloader.New(3)
 
 	cfg, err := engine.LoadConfig(a.gamePath)
@@ -102,9 +103,6 @@ func (a *App) GetProgress() ProgressInfo {
 	return a.progressInfo
 }
 
-func (a *App) EmitProgress(evt engine.ProgressEvent) {}
-func (a *App) EmitError(evt engine.ErrorEvent)       {}
-
 func (a *App) setProgress(status, currentFile string, filePct, totalPct float64, speed string) {
 	a.progressMu.Lock()
 	a.progressInfo = ProgressInfo{
@@ -115,14 +113,6 @@ func (a *App) setProgress(status, currentFile string, filePct, totalPct float64,
 		Speed:        speed,
 	}
 	a.progressMu.Unlock()
-
-	a.engine.EmitProgress(engine.ProgressEvent{
-		Status:       status,
-		CurrentFile:  currentFile,
-		FilePercent:  filePct,
-		TotalPercent: totalPct,
-		Speed:        speed,
-	})
 }
 
 func (a *App) NeedsRepair() bool {
@@ -167,15 +157,13 @@ func (a *App) runCheckCycle() {
 		a.setProgress("Checking patcher update...", "", 0, 0, "")
 		updated, err := a.updater.Update(ctx, manifest.PatcherURL, manifest.PatcherHash)
 		if err != nil {
-			a.engine.EmitError(engine.ErrorEvent{
-				Code:    "self_update_error",
-				Message: fmt.Sprintf("Self-update failed: %v", err),
-			})
+			log.Printf("[self-update] failed: %v", err)
 		} else if updated {
-			if ok, _ := a.updater.Restart(); ok {
-				os.Exit(0)
+			if ok, _ := a.updater.Restart(); !ok {
+				a.handleError("ERR_RESTART", "New version downloaded but failed to restart.", false)
+				return
 			}
-			return
+			os.Exit(0)
 		}
 	}
 
@@ -202,68 +190,11 @@ func (a *App) runCheckCycle() {
 		return
 	}
 
-	totalApplied := 0
+	queue := engine.BuildQueue(manifest, engine.LocalVersion(localState))
 
-	for {
-		queue, _, err := a.evaluatePatchQueue(manifest)
-		if err != nil {
-			a.handleError("ERR_LOCAL_STATE", err.Error(), false)
-			return
-		}
-
-		if len(queue) == 0 {
-			break
-		}
-
-		patch := queue[0]
-
-		a.engine.SetState(engine.StateDownloading)
-		a.setProgress(fmt.Sprintf("Downloading %s...", patch.Name), patch.Name, 0, 0, "")
-
-		patchPath, cached, err := a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
-		if err != nil {
-			a.handleError("ERR_DOWNLOAD", fmt.Sprintf("Failed to get %s: %v", patch.Name, err), false)
-			return
-		}
-
-		if err := downloader.VerifyFile(patchPath, patch.Hash); err != nil {
-			log.Printf("[patch] Hash mismatch for %s, deleting and re-downloading: %v", patch.Name, err)
-			os.Remove(patchPath)
-			patchPath, cached, err = a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
-			if err != nil {
-				a.handleError("ERR_DOWNLOAD", fmt.Sprintf("Re-download %s failed: %v", patch.Name, err), false)
-				return
-			}
-			if err := downloader.VerifyFile(patchPath, patch.Hash); err != nil {
-				os.Remove(patchPath)
-				a.handleError("ERR_HASH", fmt.Sprintf("Hash mismatch for %s after re-download: %v", patch.Name, err), false)
-				return
-			}
-		}
-
-		a.engine.SetState(engine.StatePatching)
-		a.setProgress(fmt.Sprintf("Applying %s...", patch.Name), patch.Name, 100, 0, "")
-
-		if err := a.applyPatch(patch, patchPath, 1, 1); err != nil {
-			a.handleError("ERR_PATCH", fmt.Sprintf("Failed to apply %s: %v", patch.Name, err), false)
-			return
-		}
-
-		a.cachePatch(patch, patchPath, cached)
-
-		localState.AppliedPatches = append(localState.AppliedPatches, engine.LocalPatch{
-			ID:   patch.ID,
-			Name: patch.Name,
-			Hash: patch.Hash,
-			Size: patch.Size,
-		})
-		if err := engine.WriteLocalState(a.gamePath, localState); err != nil {
-			a.handleError("ERR_LOCAL_STATE", fmt.Sprintf("Failed to write state: %v", err), false)
-			return
-		}
-
-		totalApplied++
-		log.Printf("[patch] Applied %s (id=%d)", patch.Name, patch.ID)
+	totalApplied, err := a.applyPatches(ctx, manifest, queue, localState)
+	if err != nil {
+		return
 	}
 
 	engine.CleanupBackups(a.gamePath)
@@ -278,7 +209,7 @@ func (a *App) runCheckCycle() {
 		a.setAlreadyUpToDate(finalVersion)
 	} else {
 		log.Printf("[runCheckCycle] Complete, applied %d patches, version=%d", totalApplied, finalVersion)
-		a.setComplete(totalApplied, finalVersion)
+		a.setComplete(finalVersion)
 	}
 }
 
@@ -319,20 +250,13 @@ func (a *App) runRepairCycle() {
 		}
 	}
 
-	var queue []engine.Patch
+	queue := make([]engine.Patch, 0, len(manifest.Patches))
 	for _, p := range manifest.Patches {
 		if p.ID >= mismatchID {
 			queue = append(queue, p)
 		}
 	}
-
-	for i := 0; i < len(queue); i++ {
-		for j := i + 1; j < len(queue); j++ {
-			if queue[j].ID < queue[i].ID {
-				queue[i], queue[j] = queue[j], queue[i]
-			}
-		}
-	}
+	sort.Slice(queue, func(i, j int) bool { return queue[i].ID < queue[j].ID })
 
 	var repaired []engine.LocalPatch
 	for _, p := range localState.AppliedPatches {
@@ -346,55 +270,9 @@ func (a *App) runRepairCycle() {
 		return
 	}
 
-	totalApplied := 0
-	for _, patch := range queue {
-		a.engine.SetState(engine.StateDownloading)
-		a.setProgress(fmt.Sprintf("Repairing %s...", patch.Name), patch.Name, 0, 0, "")
-
-		patchPath, cached, err := a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
-		if err != nil {
-			a.handleError("ERR_DOWNLOAD", fmt.Sprintf("Failed to get %s: %v", patch.Name, err), false)
-			return
-		}
-
-		if err := downloader.VerifyFile(patchPath, patch.Hash); err != nil {
-			log.Printf("[repair] Hash mismatch for %s, re-downloading: %v", patch.Name, err)
-			os.Remove(patchPath)
-			patchPath, cached, err = a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
-			if err != nil {
-				a.handleError("ERR_DOWNLOAD", fmt.Sprintf("Re-download %s failed: %v", patch.Name, err), false)
-				return
-			}
-			if err := downloader.VerifyFile(patchPath, patch.Hash); err != nil {
-				os.Remove(patchPath)
-				a.handleError("ERR_HASH", fmt.Sprintf("Hash mismatch for %s after re-download: %v", patch.Name, err), false)
-				return
-			}
-		}
-
-		a.engine.SetState(engine.StatePatching)
-		a.setProgress(fmt.Sprintf("Applying %s...", patch.Name), patch.Name, 100, 0, "")
-
-		if err := a.applyPatch(patch, patchPath, len(queue), totalApplied+1); err != nil {
-			a.handleError("ERR_PATCH", fmt.Sprintf("Failed to apply %s: %v", patch.Name, err), false)
-			return
-		}
-
-		a.cachePatch(patch, patchPath, cached)
-
-		localState.AppliedPatches = append(localState.AppliedPatches, engine.LocalPatch{
-			ID:   patch.ID,
-			Name: patch.Name,
-			Hash: patch.Hash,
-			Size: patch.Size,
-		})
-		if err := engine.WriteLocalState(a.gamePath, localState); err != nil {
-			a.handleError("ERR_LOCAL_STATE", fmt.Sprintf("Failed to write state: %v", err), false)
-			return
-		}
-
-		totalApplied++
-		log.Printf("[repair] Applied %s (id=%d)", patch.Name, patch.ID)
+	totalApplied, err := a.applyPatches(ctx, manifest, queue, localState)
+	if err != nil {
+		return
 	}
 
 	engine.CleanupBackups(a.gamePath)
@@ -405,7 +283,7 @@ func (a *App) runRepairCycle() {
 	a.engine.SetState(engine.StateReady)
 
 	log.Printf("[repair] Complete, repaired %d patches, version=%d", totalApplied, finalVersion)
-	a.setComplete(totalApplied, finalVersion)
+	a.setComplete(finalVersion)
 }
 
 func (a *App) fetchManifest(ctx context.Context) (*engine.Manifest, error) {
@@ -426,15 +304,60 @@ func (a *App) fetchManifest(ctx context.Context) (*engine.Manifest, error) {
 	return manifest, nil
 }
 
-func (a *App) evaluatePatchQueue(manifest *engine.Manifest) ([]engine.Patch, int, error) {
-	localState, err := engine.ReadLocalState(a.gamePath)
-	if err != nil {
-		return nil, 0, fmt.Errorf("read local state: %w", err)
-	}
+func (a *App) applyPatches(ctx context.Context, manifest *engine.Manifest, queue []engine.Patch, localState *engine.LocalState) (int, error) {
+	totalApplied := 0
+	for _, patch := range queue {
+		a.engine.SetState(engine.StateDownloading)
+		a.setProgress(fmt.Sprintf("Downloading %s...", patch.Name), patch.Name, 0, 0, "")
 
-	localVersion := engine.LocalVersion(localState)
-	queue := engine.BuildQueue(manifest, localVersion)
-	return queue, localVersion, nil
+		patchPath, cached, err := a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
+		if err != nil {
+			a.handleError("ERR_DOWNLOAD", fmt.Sprintf("Failed to get %s: %v", patch.Name, err), false)
+			return totalApplied, err
+		}
+
+		if !cached {
+			if err := downloader.VerifyFile(patchPath, patch.Hash); err != nil {
+				log.Printf("[patch] Hash mismatch for %s, re-downloading: %v", patch.Name, err)
+				os.Remove(patchPath)
+				patchPath, cached, err = a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
+				if err != nil {
+					a.handleError("ERR_DOWNLOAD", fmt.Sprintf("Re-download %s failed: %v", patch.Name, err), false)
+					return totalApplied, err
+				}
+				if err := downloader.VerifyFile(patchPath, patch.Hash); err != nil {
+					os.Remove(patchPath)
+					a.handleError("ERR_HASH", fmt.Sprintf("Hash mismatch for %s after re-download: %v", patch.Name, err), false)
+					return totalApplied, err
+				}
+			}
+		}
+
+		a.engine.SetState(engine.StatePatching)
+		a.setProgress(fmt.Sprintf("Applying %s...", patch.Name), patch.Name, 100, 0, "")
+
+		if err := a.applyPatch(patch, patchPath, len(queue), totalApplied+1); err != nil {
+			a.handleError("ERR_PATCH", fmt.Sprintf("Failed to apply %s: %v", patch.Name, err), false)
+			return totalApplied, err
+		}
+
+		a.cachePatch(patch, patchPath, cached)
+
+		localState.AppliedPatches = append(localState.AppliedPatches, engine.LocalPatch{
+			ID:   patch.ID,
+			Name: patch.Name,
+			Hash: patch.Hash,
+			Size: patch.Size,
+		})
+		if err := engine.WriteLocalState(a.gamePath, localState); err != nil {
+			a.handleError("ERR_LOCAL_STATE", fmt.Sprintf("Failed to write state: %v", err), false)
+			return totalApplied, err
+		}
+
+		totalApplied++
+		log.Printf("[patch] Applied %s (id=%d)", patch.Name, patch.ID)
+	}
+	return totalApplied, nil
 }
 
 func cacheDir(gamePath string) string {
@@ -685,14 +608,10 @@ func (a *App) FullGRFCheck() (engine.GRFCheckReport, error) {
 func (a *App) handleError(code, message string, fatal bool) {
 	a.engine.SetState(engine.StateError)
 	a.setProgress("Error: "+message, "", 0, 0, "")
-	a.engine.EmitError(engine.ErrorEvent{
-		Code:    code,
-		Message: message,
-		Fatal:   fatal,
-	})
+	log.Printf("[error] %s: %s (fatal=%t)", code, message, fatal)
 }
 
-func (a *App) setComplete(patchCount, newVersion int) {
+func (a *App) setComplete(newVersion int) {
 	a.setProgress(fmt.Sprintf("Ready (patch %d)", newVersion), "", 100, 100, "")
 }
 
