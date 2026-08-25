@@ -32,14 +32,6 @@ func New(dl *downloader.Downloader) (*Updater, error) {
 	}, nil
 }
 
-func (u *Updater) NeedsUpdate(ctx context.Context, expectedHash string) (bool, error) {
-	actualHash, err := downloader.HashFile(u.currentPath)
-	if err != nil {
-		return false, fmt.Errorf("hash current binary: %w", err)
-	}
-	return actualHash != expectedHash, nil
-}
-
 func (u *Updater) Update(ctx context.Context, url, expectedHash string) (bool, error) {
 	tmpPath := u.currentPath + ".new"
 	if err := u.dl.Fetch(ctx, url, tmpPath, nil); err != nil {

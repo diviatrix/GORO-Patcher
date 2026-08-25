@@ -18,33 +18,6 @@ func sha256hex(b []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func TestNeedsUpdate(t *testing.T) {
-	dl := downloader.New(3)
-
-	dir := t.TempDir()
-	exePath := filepath.Join(dir, "patcher")
-	os.WriteFile(exePath, []byte("current binary"), 0755)
-
-	u := &Updater{dl: dl, currentPath: exePath}
-
-	currentHash := sha256hex([]byte("current binary"))
-	needed, err := u.NeedsUpdate(context.Background(), currentHash)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if needed {
-		t.Error("expected no update needed for same hash")
-	}
-
-	needed, err = u.NeedsUpdate(context.Background(), "0000000000000000000000000000000000000000000000000000000000000000")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !needed {
-		t.Error("expected update needed for different hash")
-	}
-}
-
 func TestUpdateDownloadAndVerify(t *testing.T) {
 	newContent := []byte("new patcher binary v2")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

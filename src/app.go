@@ -179,6 +179,8 @@ func (a *App) runCheckCycle() {
 		}
 	}
 
+	a.prunePatchCache(manifest)
+
 	localState, err := engine.ReadLocalState(a.gamePath)
 	if err != nil {
 		a.handleError("ERR_LOCAL_STATE", err.Error(), false)
@@ -218,7 +220,7 @@ func (a *App) runCheckCycle() {
 		a.engine.SetState(engine.StateDownloading)
 		a.setProgress(fmt.Sprintf("Downloading %s...", patch.Name), patch.Name, 0, 0, "")
 
-		patchPath, err := a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
+		patchPath, cached, err := a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
 		if err != nil {
 			a.handleError("ERR_DOWNLOAD", fmt.Sprintf("Failed to get %s: %v", patch.Name, err), false)
 			return
@@ -227,7 +229,7 @@ func (a *App) runCheckCycle() {
 		if err := downloader.VerifyFile(patchPath, patch.Hash); err != nil {
 			log.Printf("[patch] Hash mismatch for %s, deleting and re-downloading: %v", patch.Name, err)
 			os.Remove(patchPath)
-			patchPath, err = a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
+			patchPath, cached, err = a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
 			if err != nil {
 				a.handleError("ERR_DOWNLOAD", fmt.Sprintf("Re-download %s failed: %v", patch.Name, err), false)
 				return
@@ -247,7 +249,7 @@ func (a *App) runCheckCycle() {
 			return
 		}
 
-		os.Remove(patchPath)
+		a.cachePatch(patch, patchPath, cached)
 
 		localState.AppliedPatches = append(localState.AppliedPatches, engine.LocalPatch{
 			ID:   patch.ID,
@@ -349,7 +351,7 @@ func (a *App) runRepairCycle() {
 		a.engine.SetState(engine.StateDownloading)
 		a.setProgress(fmt.Sprintf("Repairing %s...", patch.Name), patch.Name, 0, 0, "")
 
-		patchPath, err := a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
+		patchPath, cached, err := a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
 		if err != nil {
 			a.handleError("ERR_DOWNLOAD", fmt.Sprintf("Failed to get %s: %v", patch.Name, err), false)
 			return
@@ -358,7 +360,7 @@ func (a *App) runRepairCycle() {
 		if err := downloader.VerifyFile(patchPath, patch.Hash); err != nil {
 			log.Printf("[repair] Hash mismatch for %s, re-downloading: %v", patch.Name, err)
 			os.Remove(patchPath)
-			patchPath, err = a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
+			patchPath, cached, err = a.acquirePatch(ctx, manifest.PatchBaseURL, patch)
 			if err != nil {
 				a.handleError("ERR_DOWNLOAD", fmt.Sprintf("Re-download %s failed: %v", patch.Name, err), false)
 				return
@@ -378,7 +380,7 @@ func (a *App) runRepairCycle() {
 			return
 		}
 
-		os.Remove(patchPath)
+		a.cachePatch(patch, patchPath, cached)
 
 		localState.AppliedPatches = append(localState.AppliedPatches, engine.LocalPatch{
 			ID:   patch.ID,
@@ -435,23 +437,61 @@ func (a *App) evaluatePatchQueue(manifest *engine.Manifest) ([]engine.Patch, int
 	return queue, localVersion, nil
 }
 
-func (a *App) acquirePatch(ctx context.Context, patchBaseURL string, patch engine.Patch) (string, error) {
+func cacheDir(gamePath string) string {
+	return filepath.Join(gamePath, ".goro-patches")
+}
+
+func cachePathFor(gamePath string, patch engine.Patch) string {
+	tag := patch.Hash
+	if len(tag) > 12 {
+		tag = tag[:12]
+	}
+	return filepath.Join(cacheDir(gamePath), patch.Name+"."+tag+".patch")
+}
+
+func (a *App) acquirePatch(ctx context.Context, patchBaseURL string, patch engine.Patch) (string, bool, error) {
+	cachePath := cachePathFor(a.gamePath, patch)
+	if _, err := os.Stat(cachePath); err == nil && downloader.VerifyFile(cachePath, patch.Hash) == nil {
+		return cachePath, true, nil
+	}
+
 	if patchBaseURL == "" {
-		return "", fmt.Errorf("no patch_base_url in manifest")
+		return "", false, fmt.Errorf("no patch_base_url in manifest")
 	}
 
 	safeName, err := engine.SafePatchComponent(patch.Name)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
 	downloadPath := filepath.Join(a.gamePath, safeName)
 	patchURL := patchBaseURL + patch.Name
 	if err := a.dl.Fetch(ctx, patchURL, downloadPath, nil); err != nil {
-		return "", fmt.Errorf("download: %w", err)
+		return "", false, fmt.Errorf("download: %w", err)
 	}
 
-	return downloadPath, nil
+	return downloadPath, false, nil
+}
+
+func (a *App) cachePatch(patch engine.Patch, path string, fromCache bool) {
+	if fromCache {
+		return
+	}
+	os.MkdirAll(cacheDir(a.gamePath), 0755)
+	os.Rename(path, cachePathFor(a.gamePath, patch))
+}
+
+func (a *App) prunePatchCache(manifest *engine.Manifest) {
+	want := make(map[string]struct{}, len(manifest.Patches))
+	for _, p := range manifest.Patches {
+		want[cachePathFor(a.gamePath, p)] = struct{}{}
+	}
+	matches, _ := filepath.Glob(filepath.Join(cacheDir(a.gamePath), "*.patch"))
+	for _, m := range matches {
+		if _, ok := want[m]; !ok {
+			os.Remove(m)
+		}
+	}
 }
 
 func (a *App) applyPatch(patch engine.Patch, patchPath string, totalPatches int, currentPatch int) error {
