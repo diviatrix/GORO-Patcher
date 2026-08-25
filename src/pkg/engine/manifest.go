@@ -69,10 +69,6 @@ func NeedsUpdate(m *Manifest, localVersion int) bool {
 	return m != nil && localVersion < m.MaxPatchID()
 }
 
-// NeedsSelfUpdate reports whether the manifest advertises a newer patcher build
-// worth applying. A path is only offered when the manifest declares both a URL
-// and a SHA-256, and only if PatcherVersion strictly exceeds the current build
-// number.
 func NeedsSelfUpdate(m *Manifest) bool {
 	return m != nil && m.PatcherURL != "" && m.PatcherHash != "" && m.PatcherVersion > CurrentPatcherVersion
 }

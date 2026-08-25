@@ -105,12 +105,6 @@ func SanitizePath(path string) string {
 	return strings.Join(clean, "/")
 }
 
-// SafePatchComponent validates a single manifest-supplied filename (patch.Name,
-// patch.Target) before it is joined onto the game directory. It must be a bare
-// relative filename with no path separators; anything else is rejected so a
-// tampered manifest cannot write or read outside the game directory. It also
-// rejects Windows namespace hazards (reserved device names, trailing dots or
-// spaces, and the ADS colon) uniformly on every OS so behavior stays identical.
 func SafePatchComponent(name string) (string, error) {
 	normalized := strings.ReplaceAll(name, "\\", "/")
 	if normalized == "" || normalized == "." || normalized == ".." {
@@ -134,9 +128,6 @@ func SafePatchComponent(name string) (string, error) {
 	return name, nil
 }
 
-// windowsReservedNames are the device names Win32 treats specially regardless of
-// case or a following extension (NUL, NUL.txt, CON, CONIN$, ...). Rejected
-// uniformly to keep patcher behavior identical across platforms.
 var windowsReservedNames = []string{
 	"con", "prn", "aux", "nul",
 	"conin$", "conout$", "clock$",
