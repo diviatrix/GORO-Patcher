@@ -29,7 +29,6 @@ func (s State) String() string {
 	return fmt.Sprintf("UNKNOWN(%d)", int(s))
 }
 
-// validTransitions defines allowed state changes.
 var validTransitions = map[State][]State{
 	StateIdle:        {StateChecking},
 	StateChecking:    {StateDownloading, StateReady, StateError},
@@ -39,7 +38,6 @@ var validTransitions = map[State][]State{
 	StateError:       {StateChecking, StateIdle},
 }
 
-// CanTransitionTo returns true if the transition from current to next is allowed.
 func (s State) CanTransitionTo(next State) bool {
 	allowed, ok := validTransitions[s]
 	if !ok {

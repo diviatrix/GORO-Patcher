@@ -179,8 +179,6 @@ func TestNormalizeGRFPath(t *testing.T) {
 	}
 }
 
-// --- Test helpers ---
-
 func buildTestGRF(t *testing.T) []byte {
 	t.Helper()
 	return buildTestGRFWithFiles(t, map[string][]byte{
@@ -203,7 +201,6 @@ func buildTestGRFWithFiles(t *testing.T, files map[string][]byte) []byte {
 		blocks = append(blocks, fileBlock{name: name, compressed: compressed})
 	}
 
-	// Calculate data offsets (data starts right after header at position 46)
 	var fileTable bytes.Buffer
 	dataOffset := uint32(0)
 	for _, b := range blocks {
@@ -211,23 +208,19 @@ func buildTestGRFWithFiles(t *testing.T, files map[string][]byte) []byte {
 		fileTable.WriteByte(0)
 		binary.Write(&fileTable, binary.LittleEndian, uint32(len(b.compressed)))
 		binary.Write(&fileTable, binary.LittleEndian, uint32(len(b.compressed)))
-		binary.Write(&fileTable, binary.LittleEndian, uint32(len(b.compressed))) // uncompressed = compressed
+		binary.Write(&fileTable, binary.LittleEndian, uint32(len(b.compressed)))
 		fileTable.WriteByte(1)
-		// Offset is relative to data start (position 46), so stored = absolute - 46
+
 		binary.Write(&fileTable, binary.LittleEndian, dataOffset)
 		dataOffset += uint32(len(b.compressed))
 	}
 
 	compressedFT := compressZlib(t, fileTable.Bytes())
 
-	// ftSeekOffset: from end of header to file table
-	// Data is right after header (46), then file table after data
 	ftSeekOffset := dataOffset
 
-	// Build GRF
 	var grf bytes.Buffer
 
-	// Header (46 bytes)
 	header := make([]byte, grfHeaderSize)
 	copy(header, "Master of Magic")
 	header[15] = 0
@@ -236,12 +229,10 @@ func buildTestGRFWithFiles(t *testing.T, files map[string][]byte) []byte {
 	binary.LittleEndian.PutUint32(header[0x1E:0x22], ftSeekOffset)
 	grf.Write(header)
 
-	// Data blocks (BEFORE file table, matching real GRF layout)
 	for _, b := range blocks {
 		grf.Write(b.compressed)
 	}
 
-	// File table header + compressed file table
 	binary.Write(&grf, binary.LittleEndian, uint32(len(compressedFT)))
 	binary.Write(&grf, binary.LittleEndian, uint32(fileTable.Len()))
 	grf.Write(compressedFT)

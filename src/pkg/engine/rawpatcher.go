@@ -35,7 +35,10 @@ func PatchRaw(gamePath, zipPath string) error {
 		}
 
 		if _, err := os.Stat(dest); err == nil {
-			bakPath := dest + ".bak"
+			bakPath := filepath.Join(gamePath, ".goro-backups", name+".bak")
+			if err := os.MkdirAll(filepath.Dir(bakPath), 0755); err != nil {
+				return fmt.Errorf("mkdir backup: %w", err)
+			}
 			if err := copyFile(dest, bakPath); err != nil {
 				return fmt.Errorf("backup %s: %w", dest, err)
 			}
@@ -68,7 +71,7 @@ func PatchRaw(gamePath, zipPath string) error {
 }
 
 func sanitizePath(path string) string {
-	// Convert backslashes to forward slashes
+
 	result := make([]byte, len(path))
 	for i, b := range []byte(path) {
 		if b == '\\' {
@@ -120,19 +123,18 @@ func copyFile(src, dst string) error {
 }
 
 func CleanupBackups(gamePath string) error {
-	return filepath.Walk(gamePath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !info.IsDir() && strings.HasSuffix(path, ".bak") {
-			os.Remove(path)
-		}
+
+	backupsDir := filepath.Join(gamePath, ".goro-backups")
+
+	if _, err := os.Stat(backupsDir); os.IsNotExist(err) {
 		return nil
-	})
+	}
+
+	return os.RemoveAll(backupsDir)
 }
 
 func CleanupStaleFiles(gamePath string) error {
-	// 1. Delete stale .patching and .new temp files
+
 	for _, pattern := range []string{"*.patching", "*.new"} {
 		matches, _ := filepath.Glob(filepath.Join(gamePath, pattern))
 		for _, m := range matches {
@@ -140,25 +142,10 @@ func CleanupStaleFiles(gamePath string) error {
 		}
 	}
 
-	// 2. Recover .bak files: restore if target is missing or corrupt
 	baks, _ := filepath.Glob(filepath.Join(gamePath, "*.bak"))
 	for _, bak := range baks {
-		target := bak[:len(bak)-4] // remove .bak
-
-		needRestore := false
-		info, err := os.Stat(target)
-		if os.IsNotExist(err) {
-			needRestore = true
-		} else if err == nil {
-			// Target exists — check if it looks corrupt
-			if info.Size() == 0 {
-				needRestore = true
-			} else if isGRFFile(target) && !isValidGRF(target) {
-				needRestore = true
-			}
-		}
-
-		if needRestore {
+		target := bak[:len(bak)-4]
+		if needsRestore(target) {
 			log.Printf("[recovery] Restoring %s from %s", target, bak)
 			os.Rename(bak, target)
 		} else {
@@ -166,7 +153,56 @@ func CleanupStaleFiles(gamePath string) error {
 		}
 	}
 
-	return nil
+	return reconcileBackups(filepath.Join(gamePath, ".goro-backups"), gamePath)
+}
+
+func needsRestore(target string) bool {
+	info, err := os.Stat(target)
+	if os.IsNotExist(err) {
+		return true
+	}
+	if err == nil {
+		if info.Size() == 0 {
+			return true
+		}
+		if isGRFFile(target) && !isValidGRF(target) {
+			return true
+		}
+	}
+	return false
+}
+
+func reconcileBackups(backupsDir, gamePath string) error {
+	if _, err := os.Stat(backupsDir); os.IsNotExist(err) {
+		return nil
+	}
+
+	return filepath.Walk(backupsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() || !strings.HasSuffix(path, ".bak") {
+			return nil
+		}
+
+		rel, err := filepath.Rel(backupsDir, path)
+		if err != nil {
+			return nil
+		}
+		rel = strings.TrimSuffix(rel, ".bak")
+
+		target := filepath.Join(gamePath, rel)
+		if needsRestore(target) {
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return nil
+			}
+			log.Printf("[recovery] Restoring %s from %s", target, path)
+			os.Rename(path, target)
+		} else {
+			os.Remove(path)
+		}
+		return nil
+	})
 }
 
 func isGRFFile(path string) bool {

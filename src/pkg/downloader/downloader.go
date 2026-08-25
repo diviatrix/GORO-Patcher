@@ -26,7 +26,7 @@ func New(maxRetry int) *Downloader {
 }
 
 func (d *Downloader) FetchBytes(ctx context.Context, url string) ([]byte, error) {
-	// Support local file URLs
+
 	if len(url) > 7 && url[:7] == "file://" {
 		path := url[7:]
 		return os.ReadFile(path)
@@ -75,7 +75,7 @@ func (d *Downloader) FetchBytes(ctx context.Context, url string) ([]byte, error)
 }
 
 func (d *Downloader) Fetch(ctx context.Context, url, dest string, progress ProgressFunc) error {
-	// Support local file paths
+
 	if len(url) > 0 && url[0] == '/' {
 		return copyFile(url, dest, progress)
 	}
@@ -131,11 +131,11 @@ func (d *Downloader) fetchAttempt(ctx context.Context, url, dest string, offset 
 	defer resp.Body.Close()
 
 	if offset > 0 && resp.StatusCode == http.StatusPartialContent {
-		// Resume from offset
+
 	} else if offset > 0 && resp.StatusCode == http.StatusOK {
 		offset = 0
 	} else if offset > 0 && resp.StatusCode == http.StatusRequestedRangeNotSatisfiable {
-		// File already complete
+
 		return nil
 	} else if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)

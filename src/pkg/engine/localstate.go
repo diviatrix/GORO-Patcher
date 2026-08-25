@@ -10,10 +10,10 @@ import (
 const localStateFile = "goro-patch.json"
 
 type LocalPatch struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Hash   string `json:"hash"`
-	Size   int64  `json:"size"`
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	Hash string `json:"hash"`
+	Size int64  `json:"size"`
 }
 
 type LocalState struct {
@@ -61,8 +61,6 @@ func LocalVersion(state *LocalState) int {
 	return max
 }
 
-// ValidateAgainstManifest checks each applied patch against the manifest.
-// Returns the first mismatching patch ID, or -1 if all OK.
 func ValidateAgainstManifest(state *LocalState, manifest *Manifest) (int, bool) {
 	if state == nil || len(state.AppliedPatches) == 0 {
 		return -1, true

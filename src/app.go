@@ -157,14 +157,12 @@ func (a *App) runCheckCycle() {
 	a.engine.SetState(engine.StateChecking)
 	a.setProgress("Checking for updates...", "", 0, 0, "")
 
-	// 1. Fetch manifest
 	manifest, err := a.fetchManifest(ctx)
 	if err != nil {
 		a.handleError("ERR_MANIFEST", err.Error(), true)
 		return
 	}
 
-	// 2. Self-update check
 	if a.updater != nil && engine.NeedsSelfUpdate(manifest) {
 		a.setProgress("Checking patcher update...", "", 0, 0, "")
 		updated, err := a.updater.Update(ctx, manifest.PatcherURL, manifest.PatcherHash)
@@ -181,7 +179,6 @@ func (a *App) runCheckCycle() {
 		}
 	}
 
-	// 3. Validate local state against manifest
 	localState, err := engine.ReadLocalState(a.gamePath)
 	if err != nil {
 		a.handleError("ERR_LOCAL_STATE", err.Error(), false)
@@ -197,14 +194,12 @@ func (a *App) runCheckCycle() {
 		return
 	}
 
-	// 4. Check game not running
 	running, _ := detector.IsGameRunning(a.config.ExeName)
 	if running {
 		a.handleError("ERR_GAME_RUNNING", "Game is running. Please close it first.", false)
 		return
 	}
 
-	// 5. Apply patches one at a time
 	totalApplied := 0
 
 	for {
@@ -220,7 +215,6 @@ func (a *App) runCheckCycle() {
 
 		patch := queue[0]
 
-		// Download
 		a.engine.SetState(engine.StateDownloading)
 		a.setProgress(fmt.Sprintf("Downloading %s...", patch.Name), patch.Name, 0, 0, "")
 
@@ -230,7 +224,6 @@ func (a *App) runCheckCycle() {
 			return
 		}
 
-		// Verify — if hash fails, delete and re-download once
 		if err := downloader.VerifyFile(patchPath, patch.Hash); err != nil {
 			log.Printf("[patch] Hash mismatch for %s, deleting and re-downloading: %v", patch.Name, err)
 			os.Remove(patchPath)
@@ -246,7 +239,6 @@ func (a *App) runCheckCycle() {
 			}
 		}
 
-		// Apply
 		a.engine.SetState(engine.StatePatching)
 		a.setProgress(fmt.Sprintf("Applying %s...", patch.Name), patch.Name, 100, 0, "")
 
@@ -255,10 +247,8 @@ func (a *App) runCheckCycle() {
 			return
 		}
 
-		// Cleanup downloaded file
 		os.Remove(patchPath)
 
-		// Write state
 		localState.AppliedPatches = append(localState.AppliedPatches, engine.LocalPatch{
 			ID:   patch.ID,
 			Name: patch.Name,
@@ -298,21 +288,18 @@ func (a *App) runRepairCycle() {
 	a.engine.SetState(engine.StateChecking)
 	a.setProgress("Starting repair...", "", 0, 0, "")
 
-	// 1. Fetch manifest
 	manifest, err := a.fetchManifest(ctx)
 	if err != nil {
 		a.handleError("ERR_MANIFEST", err.Error(), true)
 		return
 	}
 
-	// 2. Check game not running
 	running, _ := detector.IsGameRunning(a.config.ExeName)
 	if running {
 		a.handleError("ERR_GAME_RUNNING", "Game is running. Please close it first.", false)
 		return
 	}
 
-	// 3. Find repair start point
 	localState, err := engine.ReadLocalState(a.gamePath)
 	if err != nil {
 		a.handleError("ERR_LOCAL_STATE", err.Error(), false)
@@ -321,7 +308,7 @@ func (a *App) runRepairCycle() {
 
 	mismatchID := a.repairFromID
 	if mismatchID <= 0 {
-		// Re-validate
+
 		mismatchID, _ = engine.ValidateAgainstManifest(localState, manifest)
 		if mismatchID < 0 {
 			a.engine.SetState(engine.StateReady)
@@ -330,14 +317,13 @@ func (a *App) runRepairCycle() {
 		}
 	}
 
-	// 4. Build queue from mismatch onward
 	var queue []engine.Patch
 	for _, p := range manifest.Patches {
 		if p.ID >= mismatchID {
 			queue = append(queue, p)
 		}
 	}
-	// Sort by ID
+
 	for i := 0; i < len(queue); i++ {
 		for j := i + 1; j < len(queue); j++ {
 			if queue[j].ID < queue[i].ID {
@@ -346,7 +332,6 @@ func (a *App) runRepairCycle() {
 		}
 	}
 
-	// 5. Remove mismatching and subsequent entries from local state
 	var repaired []engine.LocalPatch
 	for _, p := range localState.AppliedPatches {
 		if p.ID < mismatchID {
@@ -359,7 +344,6 @@ func (a *App) runRepairCycle() {
 		return
 	}
 
-	// 6. Download and apply
 	totalApplied := 0
 	for _, patch := range queue {
 		a.engine.SetState(engine.StateDownloading)

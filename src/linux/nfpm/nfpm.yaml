@@ -1,0 +1,40 @@
+
+name: "GORO-Patcher"
+arch: ${GOARCH}
+platform: "linux"
+version: "0.1.0"
+section: "default"
+priority: "extra"
+maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
+description: "Ragnarok Online GRF Patcher"
+vendor: "My Company"
+homepage: "https://wails.io"
+license: "MIT"
+release: "1"
+
+contents:
+  - src: "./bin/GORO-Patcher"
+    dst: "/usr/local/bin/GORO-Patcher"
+  - src: "./build/appicon.png"
+    dst: "/usr/share/icons/hicolor/128x128/apps/GORO-Patcher.png"
+  - src: "./build/linux/GORO-Patcher.desktop"
+    dst: "/usr/share/applications/GORO-Patcher.desktop"
+
+depends:
+  - libgtk-4-1
+  - libwebkitgtk-6.0-4
+
+overrides:
+  rpm:
+    depends:
+      - gtk4
+      - webkitgtk6.0
+
+  archlinux:
+    depends:
+      - gtk4
+      - webkitgtk-6.0
+
+scripts:
+  postinstall: "./build/linux/nfpm/scripts/postinstall.sh"
+

@@ -6,6 +6,6 @@ type FileEntry struct {
 	UncompressedSize      uint32
 	Flags                 uint8
 	Offset                uint32
-	FileName              string // Raw key for map lookup
-	DisplayName           string // UTF-8 decoded for display
+	FileName              string
+	DisplayName           string
 }

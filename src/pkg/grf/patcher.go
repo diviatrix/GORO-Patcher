@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-// ProgressFunc is called during merge operations with current/total file counts
 type ProgressFunc func(current, total int, filename string)
 
 func PatchGRF(grfPath, patchPath string) error {
@@ -17,7 +16,7 @@ func PatchGRF(grfPath, patchPath string) error {
 }
 
 func PatchGRFWithProgress(grfPath, patchPath string, progress ProgressFunc) error {
-	// Ensure target GRF exists (create empty if needed)
+
 	if _, err := os.Stat(grfPath); os.IsNotExist(err) {
 		newGrf, err := Create(grfPath)
 		if err != nil {
@@ -51,7 +50,6 @@ func patchGRFFromZip(grfPath, zipPath string, progress ProgressFunc) error {
 	}
 	defer zr.Close()
 
-	// Count non-directory entries
 	total := 0
 	for _, file := range zr.File {
 		if !file.FileInfo().IsDir() {

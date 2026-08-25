@@ -13,7 +13,7 @@ import (
 	"golang.org/x/text/transform"
 )
 
-const grfHeaderSize = 0x2E // 46 bytes
+const grfHeaderSize = 0x2E
 
 type GRF struct {
 	header      grfHeader
@@ -25,11 +25,11 @@ type GRF struct {
 }
 
 type grfHeader struct {
-	Magic    [16]byte
-	Key      [8]byte
-	Reserved [20]byte // 0x18-0x2B
-	Version  uint32   // at 0x2A, read as (uint32 >> 8)
-	FileCount uint32  // at 0x26, read as (uint32 - 7)
+	Magic     [16]byte
+	Key       [8]byte
+	Reserved  [20]byte
+	Version   uint32
+	FileCount uint32
 }
 
 func Open(path string) (*GRF, error) {
@@ -38,31 +38,26 @@ func Open(path string) (*GRF, error) {
 		return nil, err
 	}
 
-	// Read full header (46 bytes)
 	var headerBuf [grfHeaderSize]byte
 	if _, err := io.ReadFull(f, headerBuf[:]); err != nil {
 		f.Close()
 		return nil, fmt.Errorf("read header: %w", err)
 	}
 
-	// Verify magic
 	if string(headerBuf[0:15]) != "Master of Magic" {
 		f.Close()
 		return nil, fmt.Errorf("invalid GRF magic")
 	}
 
-	// Parse header fields (rAthena layout)
 	version := binary.LittleEndian.Uint32(headerBuf[0x2A:0x2E]) >> 8
 	fileCount := int(binary.LittleEndian.Uint32(headerBuf[0x26:0x2A])) - 7
 
-	// Seek to file table (rAthena: fseek(fp,getlong(grf_header+0x1e),SEEK_CUR))
 	ftSeekOffset := binary.LittleEndian.Uint32(headerBuf[0x1E:0x22])
 	if _, err := f.Seek(int64(ftSeekOffset), io.SeekCurrent); err != nil {
 		f.Close()
 		return nil, fmt.Errorf("seek to file table: %w", err)
 	}
 
-	// Read file table header: compressed_size(4) + uncompressed_size(4)
 	var ftHeader [8]byte
 	if _, err := io.ReadFull(f, ftHeader[:]); err != nil {
 		f.Close()
@@ -72,14 +67,12 @@ func Open(path string) (*GRF, error) {
 	compressedSize := binary.LittleEndian.Uint32(ftHeader[0:4])
 	uncompressedSize := binary.LittleEndian.Uint32(ftHeader[4:8])
 
-	// Read compressed file table
 	compressed := make([]byte, compressedSize)
 	if _, err := io.ReadFull(f, compressed); err != nil {
 		f.Close()
 		return nil, fmt.Errorf("read compressed file table: %w", err)
 	}
 
-	// Decompress
 	zr, err := zlib.NewReader(bytes.NewReader(compressed))
 	if err != nil {
 		f.Close()
@@ -98,7 +91,6 @@ func Open(path string) (*GRF, error) {
 		return nil, fmt.Errorf("file table size mismatch: got %d, want %d", len(decompressed), uncompressedSize)
 	}
 
-	// Parse file entries
 	entries, err := parseFileEntries(decompressed, fileCount)
 	if err != nil {
 		f.Close()
@@ -110,8 +102,6 @@ func Open(path string) (*GRF, error) {
 		entryMap[entries[i].FileName] = &entries[i]
 	}
 
-	// Data section always starts right after the header (position 46)
-	// Entry offsets are relative to this position
 	dataOffset := int64(grfHeaderSize)
 
 	return &GRF{
@@ -131,7 +121,7 @@ func parseFileEntries(data []byte, expectedCount int) ([]FileEntry, error) {
 	r := bytes.NewReader(data)
 
 	for r.Len() > 0 && len(entries) < expectedCount {
-		// Read filename (null-terminated)
+
 		var nameBytes []byte
 		for {
 			b, err := r.ReadByte()
@@ -144,12 +134,10 @@ func parseFileEntries(data []byte, expectedCount int) ([]FileEntry, error) {
 			nameBytes = append(nameBytes, b)
 		}
 
-		// Raw string for map key (preserves uniqueness)
 		rawName := string(nameBytes)
-		// Decoded UTF-8 for display
+
 		displayName := decodeEUCKR(nameBytes)
 
-		// Read entry fields (17 bytes after filename)
 		var entryMeta [17]byte
 		if _, err := io.ReadFull(r, entryMeta[:]); err != nil {
 			return entries, fmt.Errorf("read entry meta: %w", err)
@@ -171,16 +159,14 @@ func parseFileEntries(data []byte, expectedCount int) ([]FileEntry, error) {
 	return entries, nil
 }
 
-// decodeEUCKR converts EUC-KR encoded bytes to UTF-8 string.
-// Also normalizes path separators from Windows (\) to Unix (/).
 func decodeEUCKR(data []byte) string {
 	decoder := korean.EUCKR.NewDecoder()
 	utf8Bytes, _, err := transform.Bytes(decoder, data)
 	if err != nil {
-		// Fallback: return raw bytes as string
+
 		return string(data)
 	}
-	// Normalize path separators
+
 	return strings.ReplaceAll(string(utf8Bytes), "\\", "/")
 }
 
@@ -214,7 +200,6 @@ func (g *GRF) ReadFile(name string) ([]byte, error) {
 		return nil, fmt.Errorf("file not found: %s", name)
 	}
 
-	// Data offset = data section start + entry offset
 	dataPos := g.dataOffset + int64(entry.Offset)
 
 	if _, err := g.file.Seek(dataPos, io.SeekStart); err != nil {
@@ -344,38 +329,31 @@ func (g *GRF) SaveAs(dest string) error {
 		currentOffset += uint32(len(data))
 	}
 
-	// Build file table first to know its size
 	fileTableData := buildFileTable(allEntries)
 	compressedFT := compressZlibData(fileTableData)
 
-	// ftSeekOffset: distance from end of header to file table
-	// Layout: header(46) + data blocks + file table
 	ftSeekOffset := currentOffset
 
-	// Write header (46 bytes)
 	header := make([]byte, grfHeaderSize)
 	copy(header, "Master of Magic")
 	header[15] = 0
-	// Version at 0x2A: minor(1 byte) + major(1 byte) + padding(2 bytes)
-	// Version 0x0200: minor=0x00 at 0x2A, major=0x02 at 0x2B
-	header[0x2A] = 0x00 // minor
-	header[0x2B] = 0x02 // major
-	// FileCount at 0x26: count + 7
+
+	header[0x2A] = 0x00
+	header[0x2B] = 0x02
+
 	binary.LittleEndian.PutUint32(header[0x26:0x2A], uint32(len(allEntries))+7)
-	// FileTableOffset at 0x1E: relative to current position (after header)
+
 	binary.LittleEndian.PutUint32(header[0x1E:0x22], ftSeekOffset)
 	if _, err := f.Write(header); err != nil {
 		return err
 	}
 
-	// Write data blocks (BEFORE file table, matching real GRF layout)
 	for _, block := range dataBlocks {
 		if _, err := f.Write(block); err != nil {
 			return err
 		}
 	}
 
-	// Write file table header + compressed file table
 	binary.Write(f, binary.LittleEndian, uint32(len(compressedFT)))
 	binary.Write(f, binary.LittleEndian, uint32(len(fileTableData)))
 	f.Write(compressedFT)
@@ -387,7 +365,7 @@ func buildFileTable(entries []FileEntry) []byte {
 	var buf bytes.Buffer
 	for _, entry := range entries {
 		buf.WriteString(entry.FileName)
-		buf.WriteByte(0) // null terminator
+		buf.WriteByte(0)
 		binary.Write(&buf, binary.LittleEndian, entry.CompressedSize)
 		binary.Write(&buf, binary.LittleEndian, entry.CompressedSizeAligned)
 		binary.Write(&buf, binary.LittleEndian, entry.UncompressedSize)
@@ -418,14 +396,13 @@ func Create(path string) (*GRF, error) {
 		return nil, fmt.Errorf("create file: %w", err)
 	}
 
-	// Write header (46 bytes)
 	header := make([]byte, grfHeaderSize)
 	copy(header, "Master of Magic")
 	header[15] = 0
-	header[0x2A] = 0x00 // minor version
-	header[0x2B] = 0x02 // major version
-	binary.LittleEndian.PutUint32(header[0x26:0x2A], 7) // 0 files + 7
-	// FileTableOffset at 0x1E: relative to current position (0 = right after header)
+	header[0x2A] = 0x00
+	header[0x2B] = 0x02
+	binary.LittleEndian.PutUint32(header[0x26:0x2A], 7)
+
 	binary.LittleEndian.PutUint32(header[0x1E:0x22], 0)
 
 	if _, err := f.Write(header); err != nil {
@@ -433,7 +410,6 @@ func Create(path string) (*GRF, error) {
 		return nil, fmt.Errorf("write header: %w", err)
 	}
 
-	// Write empty file table (empty uncompressed, but valid zlib)
 	emptyData := []byte{}
 	compressedFT := compressZlibData(emptyData)
 

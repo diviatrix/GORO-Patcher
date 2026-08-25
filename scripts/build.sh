@@ -6,7 +6,6 @@ PROJECT_DIR="$SCRIPT_DIR/.."
 SRC_DIR="$PROJECT_DIR/src"
 OUT_DIR="$PROJECT_DIR/build"
 
-# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -16,7 +15,6 @@ log() { echo -e "${GREEN}[build]${NC} $1"; }
 warn() { echo -e "${YELLOW}[build]${NC} $1"; }
 err() { echo -e "${RED}[build]${NC} $1"; exit 1; }
 
-# Detect current OS
 detect_os() {
     case "$(uname -s)" in
         Linux*)     echo "linux" ;;
@@ -44,7 +42,7 @@ Options:
   -h, --help      Show this help
 
 Platform notes:
-  Linux:  Can build linux (native) and windows (cross-compile via mingw-w64)
+  Linux:  Can build linux (native) and windows (cross-compile via wails3)
   Windows: Can build windows (native). Linux build not supported.
 EOF
 }
@@ -63,7 +61,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Default targets
 if [[ ${#TARGETS[@]} -eq 0 ]]; then
     case "$HOST_OS" in
         linux)  TARGETS=("linux") ;;
@@ -116,16 +113,6 @@ check_deps() {
             fi
             ;;
         windows)
-            if [[ "$HOST_OS" == "linux" ]]; then
-                command -v x86_64-w64-mingw32-gcc &>/dev/null || {
-                    echo ""
-                    err "mingw-w64 not found. Install for your distro:
-  Arch/CachyOS:  pacman -S mingw-w64-gcc
-  Debian/Ubuntu: apt install gcc-mingw-w64-x86-64
-  Fedora:        dnf install mingw64-gcc
-  openSUSE:      zypper install mingw64-cross-gcc"
-                }
-            fi
             ;;
     esac
 }
@@ -152,10 +139,9 @@ build_linux() {
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
         go build -o "$OUT_DIR/hashfile" ./cmd/hashfile
 
-    CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
-        $wails build
+    $wails task linux:build GOOS=linux
 
-    cp "$SRC_DIR/build/GORO-Patcher" "$OUT_DIR/GORO-Patcher"
+    cp "$SRC_DIR/build/bin/GORO-Patcher" "$OUT_DIR/GORO-Patcher"
     rm -rf "$SRC_DIR/build"
 
     log "Linux: $OUT_DIR/GORO-Patcher, $OUT_DIR/hashfile"
@@ -164,25 +150,15 @@ build_linux() {
 build_windows() {
     log "Building for Windows..."
     cd "$SRC_DIR"
+    local wails=$(find_wails)
 
-    # Hashfile (no CGO, works everywhere)
     CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
         go build -o "$OUT_DIR/hashfile.exe" ./cmd/hashfile
 
-    if [[ "$HOST_OS" == "windows" ]]; then
-        # Native Windows build via wails3
-        local wails=$(find_wails)
-        CGO_ENABLED=1 GOOS=windows GOARCH=amd64 \
-            $wails build
-        cp "$SRC_DIR/build/GORO-Patcher.exe" "$OUT_DIR/GORO-Patcher.exe"
-        rm -rf "$SRC_DIR/build"
-    else
-        # Cross-compile from Linux: use go build directly
-        # wails3 build doesn't respect GOOS, so we build manually
-        CGO_ENABLED=1 GOOS=windows GOARCH=amd64 \
-            CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ \
-            go build -ldflags -H=windowsgui -o "$OUT_DIR/GORO-Patcher.exe" .
-    fi
+    $wails task windows:build GOOS=windows
+
+    cp "$SRC_DIR/build/bin/GORO-Patcher.exe" "$OUT_DIR/GORO-Patcher.exe"
+    rm -rf "$SRC_DIR/build"
 
     log "Windows: $OUT_DIR/GORO-Patcher.exe, $OUT_DIR/hashfile.exe"
 }
@@ -194,7 +170,6 @@ copy_examples() {
     cp "$PROJECT_DIR/example/plist.json.example" "$OUT_DIR/public/"
 }
 
-# Main
 log "GORO-Patcher build script (host: $HOST_OS)"
 
 $CLEAN && clean

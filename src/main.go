@@ -10,12 +10,16 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+//go:embed res/icon.png
+var iconPNG []byte
+
 func main() {
 	myApp := NewApp()
 
 	app := application.New(application.Options{
 		Name:        "GORO-Patcher",
 		Description: "Ragnarok Online GRF Patcher",
+		Icon:        iconPNG,
 		Services: []application.Service{
 			application.NewService(myApp),
 		},

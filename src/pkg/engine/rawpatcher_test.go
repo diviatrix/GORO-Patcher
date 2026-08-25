@@ -75,7 +75,7 @@ func TestPatchRawBackup(t *testing.T) {
 		t.Errorf("got %q, want %q", string(content), "new content")
 	}
 
-	bak, err := os.ReadFile(existing + ".bak")
+	bak, err := os.ReadFile(filepath.Join(gameDir, ".goro-backups", "existing.txt.bak"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,13 +95,11 @@ func TestPatchRawPathTraversal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Check that /etc/passwd was not overwritten with "malicious"
 	content, err := os.ReadFile("/etc/passwd")
 	if err == nil && string(content) == "malicious" {
 		t.Error("path traversal succeeded — /etc/passwd was overwritten")
 	}
 
-	// Verify file was extracted to safe location
 	safePath := filepath.Join(gameDir, "etc/passwd")
 	if _, err := os.Stat(safePath); os.IsNotExist(err) {
 		t.Error("file should have been extracted to safe location")
@@ -150,7 +148,7 @@ func TestCleanupStaleFiles(t *testing.T) {
 
 func TestCleanupStaleFilesRestoresBak(t *testing.T) {
 	dir := t.TempDir()
-	// Target is missing, .bak has good data
+
 	os.WriteFile(filepath.Join(dir, "data.grf.bak"), []byte("good data here"), 0644)
 
 	CleanupStaleFiles(dir)
@@ -169,7 +167,7 @@ func TestCleanupStaleFilesRestoresBak(t *testing.T) {
 
 func TestCleanupStaleFilesDeletesBakWhenTargetOK(t *testing.T) {
 	dir := t.TempDir()
-	// Target exists and looks like a valid GRF (has magic bytes)
+
 	grfData := make([]byte, 2048)
 	copy(grfData, "Master of Magic")
 	os.WriteFile(filepath.Join(dir, "data.grf"), grfData, 0644)
@@ -180,7 +178,7 @@ func TestCleanupStaleFilesDeletesBakWhenTargetOK(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "data.grf.bak")); !os.IsNotExist(err) {
 		t.Error("expected .bak to be deleted when target is valid")
 	}
-	// Target should be untouched
+
 	info, _ := os.Stat(filepath.Join(dir, "data.grf"))
 	if info.Size() != 2048 {
 		t.Error("target should be untouched")
@@ -189,7 +187,7 @@ func TestCleanupStaleFilesDeletesBakWhenTargetOK(t *testing.T) {
 
 func TestCleanupStaleFilesRestoresCorruptGRF(t *testing.T) {
 	dir := t.TempDir()
-	// Target exists but is corrupt (no magic bytes)
+
 	os.WriteFile(filepath.Join(dir, "data.grf"), []byte("corrupt"), 0644)
 	os.WriteFile(filepath.Join(dir, "data.grf.bak"), make([]byte, 2048), 0644)
 
@@ -204,7 +202,66 @@ func TestCleanupStaleFilesRestoresCorruptGRF(t *testing.T) {
 	}
 }
 
-// --- Test helpers ---
+func TestCleanupBackupsPreservesUserBak(t *testing.T) {
+	dir := t.TempDir()
+
+	userBak := filepath.Join(dir, "user-config.bak")
+	os.WriteFile(userBak, []byte("user data"), 0644)
+
+	patcherBak := filepath.Join(dir, ".goro-backups", "data", "file.bak")
+	os.MkdirAll(filepath.Dir(patcherBak), 0755)
+	os.WriteFile(patcherBak, []byte("patcher backup"), 0644)
+
+	if err := CleanupBackups(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(userBak); err != nil {
+		t.Error("user .bak file should NOT be deleted")
+	}
+	if _, err := os.Stat(patcherBak); !os.IsNotExist(err) {
+		t.Error("patcher backup in .goro-backups should be deleted")
+	}
+}
+
+func TestCleanupStaleFilesRestoresGoroBackup(t *testing.T) {
+	dir := t.TempDir()
+
+	bakPath := filepath.Join(dir, ".goro-backups", "deep", "nested", "file.txt.bak")
+	os.MkdirAll(filepath.Dir(bakPath), 0755)
+	os.WriteFile(bakPath, []byte("good patch backup"), 0644)
+
+	CleanupStaleFiles(dir)
+
+	data, err := os.ReadFile(filepath.Join(dir, "deep", "nested", "file.txt"))
+	if err != nil {
+		t.Fatalf("expected target to be restored from .goro-backups: %v", err)
+	}
+	if string(data) != "good patch backup" {
+		t.Errorf("restored content = %q, want %q", string(data), "good patch backup")
+	}
+	if _, err := os.Stat(bakPath); !os.IsNotExist(err) {
+		t.Error("expected backup removed after restore")
+	}
+}
+
+func TestCleanupStaleFilesDeletesGoroBackupWhenTargetOK(t *testing.T) {
+	dir := t.TempDir()
+
+	os.WriteFile(filepath.Join(dir, "file.txt"), []byte("good"), 0644)
+	bakPath := filepath.Join(dir, ".goro-backups", "file.txt.bak")
+	os.MkdirAll(filepath.Dir(bakPath), 0755)
+	os.WriteFile(bakPath, []byte("old backup"), 0644)
+
+	CleanupStaleFiles(dir)
+
+	if _, err := os.Stat(bakPath); !os.IsNotExist(err) {
+		t.Error("expected .goro-backups backup to be deleted when target is valid")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "file.txt")); err != nil {
+		t.Error("valid target should be untouched")
+	}
+}
 
 func createRawTestZip(t *testing.T, files map[string]string) string {
 	t.Helper()
