@@ -4,6 +4,10 @@
 
 ### Security
 
+- **Manifest signing (Ed25519)** — `plist.json` is now signed by the publisher (`hashfile genkey` / `sign`) and verified against an embedded public key before any field is trusted. Release builds (`build.sh --release`) refuse unsigned or tampered manifests; dev builds skip verification so local, unsigned manifests keep working.
+- **HTTPS-only release transport** — release builds reject every scheme except `https://` for all fetched content (manifest, patches, patcher binary, notes). Dev builds still allow `http://`/`file://` for local testing. Selected at compile time via the `release` build tag, so a shipped binary cannot be downgraded.
+- **SHA-256 patcher integrity** — the self-update binary is now verified with SHA-256 instead of the non-cryptographic XXHash64.
+- **Self-update version gate** — the manifest's `patcher_version` must strictly exceed the running patcher's `CurrentPatcherVersion`; updates to the same or older versions (rollback/downgrade) are refused.
 - **Manifest filename hardening** — `patch.Name` and `patch.Target` (both manifest-controlled) are now validated by `engine.SafePatchComponent()` before any join onto the game directory. Requires a bare relative filename and rejects path separators (`../`, absolute, nested), empty/`.`/`..`, `:` (NTFS ADS), trailing `.`/space, and Windows reserved device names (`CON`, `NUL`, `AUX`, `PRN`, `CONIN$`, `CONOUT$`, `CLOCK$`, `COM1–9`, `LPT1–9`). Fail-closed and applied to the patch download (WRITE), merged GRF write, and GRF-check read paths. See ARCHITECTURE.md → "File Name Validation (Security)".
 
 ## [0.0.2] - 2026-08-08

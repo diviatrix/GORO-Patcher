@@ -153,6 +153,37 @@ On start, the patcher validates each applied patch's hash and size against the m
 
 The reserved-name, colon, and trailing-dot checks apply on **every OS** (not just Windows) so patcher behavior is identical across platforms, at the cost of a Windows-relevant-only restriction on Linux. The raw patch path (`engine.PatchRaw`) separately sanitizes every zip entry name via `engine.SanitizePath`.
 
+## Self-Update & Manifest Authenticity
+
+The self-updater (`pkg/updater`) can replace the running executable, so it is the
+sharpest edge of manifest-content trust. It is protected by four layered gates:
+
+1. **Manifest signature (authenticity — the primary defense).** The manifest is
+   the trust root and is now authenticated. `engine.SignManifest` (called by the
+   publisher's `hashfile sign`) computes an **Ed25519** signature over a canonical
+   form of the manifest — the struct re-marshalled with the `signature` field
+   cleared. `engine.VerifyManifestSignature` re-derives that same canonical form
+   and checks it against the public key embedded in `manifest_verify_release.go`.
+   Verification runs in `App.fetchManifest` before any field is trusted, so a
+   tampered manifest can no longer influence `PatcherHash`, `PatcherURL`, or any
+   patch. Because signer and verifier share the same Go canonicalization code,
+   there is no cross-language skew. The private key lives only with the publisher
+   and is never embedded — its loss is the operator's risk, not the patcher's.
+2. **Release-only HTTPS transport.** `downloader.validateURL` gates every fetch
+   (manifest, patches, patcher binary, notes). Dev builds (`//go:build !release`)
+   allow `http://`, `https://`, `file://` and local paths for testing; release
+   builds (`//go:build release`) allow **only `https://`**. The channel is chosen
+   at compile time via the `release` build tag (`build.sh --release`), so a
+   shipped binary cannot be downgraded to plaintext.
+3. **SHA-256 binary integrity.** `updater.Update` verifies the downloaded binary
+   with `downloader.VerifySHA256File` against `PatcherHash`. Now that the hash
+   arrives inside a signed manifest it is trustworthy, and SHA-256 replaces the
+   non-cryptographic XXHash64 previously relied on in this path.
+4. **Rollback gate.** `engine.NeedsSelfUpdate` requires
+   `PatcherVersion > CurrentPatcherVersion` (a monotonic integer bumped per
+   release in `engine/version.go`). Updates to the same or an older version are
+   refused, blocking downgrade attacks.
+
 ## Notes
 
 Optional feature. Displays markdown content in the notes section of the UI.

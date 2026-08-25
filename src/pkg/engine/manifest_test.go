@@ -147,7 +147,10 @@ func TestNeedsSelfUpdate(t *testing.T) {
 	if NeedsSelfUpdate(&Manifest{}) {
 		t.Error("expected false for empty patcher fields")
 	}
-	if !NeedsSelfUpdate(&Manifest{PatcherURL: "x", PatcherHash: "y"}) {
-		t.Error("expected true when both fields set")
+	if NeedsSelfUpdate(&Manifest{PatcherURL: "x", PatcherHash: "y"}) {
+		t.Error("expected false when version not newer (no downgrade)")
+	}
+	if !NeedsSelfUpdate(&Manifest{PatcherURL: "x", PatcherHash: "y", PatcherVersion: CurrentPatcherVersion + 1}) {
+		t.Error("expected true when both fields set and version is newer")
 	}
 }

@@ -65,8 +65,49 @@ Targets:
 Options:
   -c, --clean     Clean build artifacts before building
   -f, --frontend  Regenerate frontend bindings
+  -r, --release   Build a signed release (release build tag)
   -h, --help      Show help
 ```
+
+## Dev vs. Release builds
+
+Two build channels exist, selected at compile time by the presence of the
+`release` build tag. A shipped binary cannot have its channel changed at
+runtime, so an attacker cannot flip security hardening back on.
+
+- **Dev** (default — plain `./scripts/build.sh`): the patcher accepts `http://`,
+  `https://`, `file://` and local paths, and does **not** require a manifest
+  signature. Local, unsigned manifests work unchanged.
+- **Release** (`./scripts/build.sh --release`): the patcher allows **only
+  `https://`** for everything it fetches and **requires** a valid Ed25519
+  signature on the manifest. Any other scheme or an unsigned/tampered manifest
+  is rejected.
+
+Before shipping a release, the publisher must:
+
+1. Generate a keypair and set the embedded public key:
+   ```bash
+   cd src && go run ./cmd/hashfile genkey -out keys/key.pem -pub keys/pub.pem
+   # paste the printed base64 public key into
+   # src/pkg/engine/manifest_verify_release.go (manifestPublicKeyBase64)
+   ```
+   The **private** key is signed-content custody — keep it off-repo, never ship
+   it. The public key is embedded in the binary and is safe to distribute.
+2. Bump `pkg/engine/version.go` (`CurrentPatcherVersion`) and record the same
+   integer as `patcher_version` in the manifest.
+3. Compute the patcher binary's **SHA-256** (not XXHash64) for `patcher_hash`:
+   ```bash
+   hashfile sha256 build/GORO-Patcher
+   ```
+4. Sign the manifest and re-upload it:
+   ```bash
+   hashfile sign -key keys/key.pem -in plist.json -out plist.json
+   hashfile verify -key keys/pub.pem -in plist.json
+   ```
+   In a release build the patcher refuses to run against an unsigned manifest.
+
+All content URLs (`patch_base_url`, `patcher_url`, `news_url`, notes) must be
+`https://` in the config you ship for a release build.
 
 ## Output
 

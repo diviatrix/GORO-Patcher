@@ -2,6 +2,8 @@ package updater
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +12,11 @@ import (
 
 	"github.com/diviatrix/GORO-Patcher/pkg/downloader"
 )
+
+func sha256hex(b []byte) string {
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
+}
 
 func TestNeedsUpdate(t *testing.T) {
 	dl := downloader.New(3)
@@ -20,7 +27,7 @@ func TestNeedsUpdate(t *testing.T) {
 
 	u := &Updater{dl: dl, currentPath: exePath}
 
-	currentHash := downloader.HashBytes([]byte("current binary"))
+	currentHash := sha256hex([]byte("current binary"))
 	needed, err := u.NeedsUpdate(context.Background(), currentHash)
 	if err != nil {
 		t.Fatal(err)
@@ -29,7 +36,7 @@ func TestNeedsUpdate(t *testing.T) {
 		t.Error("expected no update needed for same hash")
 	}
 
-	needed, err = u.NeedsUpdate(context.Background(), "0000000000000000")
+	needed, err = u.NeedsUpdate(context.Background(), "0000000000000000000000000000000000000000000000000000000000000000")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +59,7 @@ func TestUpdateDownloadAndVerify(t *testing.T) {
 	dl := downloader.New(3)
 	u := &Updater{dl: dl, currentPath: exePath}
 
-	expectedHash := downloader.HashBytes(newContent)
+	expectedHash := sha256hex(newContent)
 
 	updated, err := u.Update(context.Background(), server.URL, expectedHash)
 	if err != nil {

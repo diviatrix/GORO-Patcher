@@ -33,7 +33,7 @@ func New(dl *downloader.Downloader) (*Updater, error) {
 }
 
 func (u *Updater) NeedsUpdate(ctx context.Context, expectedHash string) (bool, error) {
-	actualHash, err := downloader.HashFile(u.currentPath)
+	actualHash, err := downloader.SHA256File(u.currentPath)
 	if err != nil {
 		return false, fmt.Errorf("hash current binary: %w", err)
 	}
@@ -47,7 +47,7 @@ func (u *Updater) Update(ctx context.Context, url, expectedHash string) (bool, e
 		return false, fmt.Errorf("download update: %w", err)
 	}
 
-	if err := downloader.VerifyFile(tmpPath, expectedHash); err != nil {
+	if err := downloader.VerifySHA256File(tmpPath, expectedHash); err != nil {
 		os.Remove(tmpPath)
 		return false, fmt.Errorf("verify update: %w", err)
 	}

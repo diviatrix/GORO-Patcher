@@ -27,6 +27,10 @@ func New(maxRetry int) *Downloader {
 
 func (d *Downloader) FetchBytes(ctx context.Context, url string) ([]byte, error) {
 
+	if err := validateURL(url); err != nil {
+		return nil, err
+	}
+
 	if len(url) > 7 && url[:7] == "file://" {
 		path := url[7:]
 		return os.ReadFile(path)
@@ -75,6 +79,10 @@ func (d *Downloader) FetchBytes(ctx context.Context, url string) ([]byte, error)
 }
 
 func (d *Downloader) Fetch(ctx context.Context, url, dest string, progress ProgressFunc) error {
+
+	if err := validateURL(url); err != nil {
+		return err
+	}
 
 	if len(url) > 0 && url[0] == '/' {
 		return copyFile(url, dest, progress)

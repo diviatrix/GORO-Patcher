@@ -417,6 +417,10 @@ func (a *App) fetchManifest(ctx context.Context) (*engine.Manifest, error) {
 		return nil, fmt.Errorf("parse manifest: %w", err)
 	}
 
+	if !engine.VerifyManifestSignature(manifest) {
+		return nil, fmt.Errorf("manifest signature is invalid")
+	}
+
 	return manifest, nil
 }
 

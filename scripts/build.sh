@@ -39,7 +39,14 @@ Targets:
 Options:
   -c, --clean     Clean build artifacts before building
   -f, --frontend  Regenerate frontend bindings
+  -r, --release   Build a signed release (release build tag)
   -h, --help      Show this help
+
+Release notes:
+  -r adds the `release` build tag, which enforces HTTPS-only fetching and
+  requires a valid Ed25519 signature on the manifest. Set the publisher public
+  key in src/pkg/engine/manifest_verify_release.go (via `hashfile genkey`)
+  before a release build.
 
 Platform notes:
   Linux:  Can build linux (native) and windows (cross-compile via wails3)
@@ -49,12 +56,14 @@ EOF
 
 CLEAN=false
 REGENERATE=true
+RELEASE=false
 TARGETS=()
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         -c|--clean) CLEAN=true; shift ;;
         -f|--frontend) REGENERATE=true; shift ;;
+        -r|--release) RELEASE=true; shift ;;
         -h|--help) usage; exit 0 ;;
         linux|windows|all) TARGETS+=("$1"); shift ;;
         *) err "Unknown option: $1" ;;
@@ -132,14 +141,17 @@ generate_bindings() {
 }
 
 build_linux() {
-    log "Building for Linux..."
+    log "Building for Linux... ($([ "$RELEASE" = true ] && echo release || echo dev))"
     cd "$SRC_DIR"
     local wails=$(find_wails)
 
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
         go build -o "$OUT_DIR/hashfile" ./cmd/hashfile
 
-    $wails task linux:build GOOS=linux
+    local extra_tags=""
+    $RELEASE && extra_tags="EXTRA_TAGS=release"
+
+    $wails task linux:build GOOS=linux $extra_tags
 
     cp "$SRC_DIR/build/bin/GORO-Patcher" "$OUT_DIR/GORO-Patcher"
     rm -rf "$SRC_DIR/build"
@@ -148,14 +160,17 @@ build_linux() {
 }
 
 build_windows() {
-    log "Building for Windows..."
+    log "Building for Windows... ($([ "$RELEASE" = true ] && echo release || echo dev))"
     cd "$SRC_DIR"
     local wails=$(find_wails)
 
     CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
         go build -o "$OUT_DIR/hashfile.exe" ./cmd/hashfile
 
-    $wails task windows:build GOOS=windows
+    local extra_tags=""
+    $RELEASE && extra_tags="EXTRA_TAGS=release"
+
+    $wails task windows:build GOOS=windows $extra_tags
 
     cp "$SRC_DIR/build/bin/GORO-Patcher.exe" "$OUT_DIR/GORO-Patcher.exe"
     rm -rf "$SRC_DIR/build"
