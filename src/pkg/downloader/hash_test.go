@@ -11,6 +11,13 @@ func TestHashBytes(t *testing.T) {
 	if hash == "" {
 		t.Fatal("expected non-empty hash")
 	}
+	if len(hash) != 64 {
+		t.Fatalf("expected 64-char SHA-256 hex, got %d chars: %q", len(hash), hash)
+	}
+
+	if hash != "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9" {
+		t.Errorf("unexpected hash %q (algorithm drift?)", hash)
+	}
 
 	hash2 := HashBytes([]byte("hello world"))
 	if hash != hash2 {

@@ -275,7 +275,6 @@ func TestValidateAgainstDiskRawMissingFile(t *testing.T) {
 
 func TestValidateAgainstDiskRawMutableSkipped(t *testing.T) {
 	dir := t.TempDir()
-	// Mutable file has wrong content on disk, but is excluded from the startup check.
 	writeHash(t, dir, "config.ini", []byte("runtime-changed"))
 	state := &LocalState{AppliedPatches: []LocalPatch{{ID: 6, Name: "p6.zip"}}}
 	manifest := &Manifest{Patches: []Patch{

@@ -12,7 +12,7 @@ plist.json address for patcher itself is specified in `goro-config.json`.
     {
       "id": 1,
       "name": "patch_0.grf",
-      "hash": "a899ed08439de698",
+      "hash": "GENERATED_HASH",
       "size": 200627214,
       "type": "grf",
       "target": "data.grf"
@@ -36,11 +36,11 @@ plist.json address for patcher itself is specified in `goro-config.json`.
 | `patch_base_url` | Base URL for downloading patch files. |
 | `patches[].id` | Unique patch ID. Also the version number. Must be sequential. |
 | `patches[].name` | Patch filename (downloaded from `patch_base_url + name`) |
-| `patches[].hash` | XXHash64 of the file (16-char hex) |
+| `patches[].hash` | SHA-256 of the file (64-char hex) |
 | `patches[].size` | File size in bytes |
 | `patches[].type` | `grf` or `raw` |
 | `patches[].target` | Target file for GRF merge, or relative path for raw extract |
-| `patches[].file_hashes` | **Optional.** Map of entry/file → XXHash64 of its content. For `grf` the keys are GRF entry paths (content hash); for `raw` the keys are extracted relative paths (file hash). Enables installed-file verification. Omitted (empty) when a patch writes nothing new. |
+| `patches[].file_hashes` | **Optional.** Map of entry/file → SHA-256 of its content. For `grf` the keys are GRF entry paths (content hash); for `raw` the keys are extracted relative paths (file hash). Enables installed-file verification. Omitted (empty) when a patch writes nothing new. |
 | `patches[].mutable` | **Optional.** List of `raw` relative paths the game rewrites at runtime. Those are verified at **apply time only** and excluded from the **startup re-check** (avoids false "corrupt → repair"). |
 
 ### Version = Patch ID
@@ -149,13 +149,13 @@ patch.zip
 
 ## Hash Generation
 
-XXHash64, lowercase hex, 16 characters.
+SHA-256, lowercase hex, 64 characters.
 
 ```go
 import "github.com/diviatrix/GORO-Patcher/pkg/downloader"
 
 hash, err := downloader.HashFile("path/to/patch.grf")
-// hash = "a899ed08439de698"
+// hash = "GENERATED_HASH" (64-char sha256 hex, real value at runtime)
 ```
 
 ### Authoring installed-result hashes (`gen-plist`)

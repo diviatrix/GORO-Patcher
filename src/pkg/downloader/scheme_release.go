@@ -7,11 +7,6 @@ import (
 	"net/url"
 )
 
-// validateURL is the release-build policy: only https:// is acceptable for any
-// content the patcher fetches (manifest, patch files, patcher binary, notes).
-// Plain http, file, and bare local paths are rejected so a network attacker
-// cannot downgrade the channel and serve tampered content. Verification of the
-// manifest's Ed25519 signature is what guarantees authenticity on top of this.
 func validateURL(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil {

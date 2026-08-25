@@ -7,11 +7,6 @@ import (
 	"fmt"
 )
 
-// Canonicalizes a manifest for signing/verification. The signature field is
-// cleared and the struct is re-marshalled so both the publisher (hashfile sign)
-// and the patcher (fetchManifest) derive identical bytes regardless of the
-// original file's whitespace or key order. Unknown JSON fields are dropped on
-// both sides, so they never affect the signature.
 func canonicalManifest(m *Manifest) ([]byte, error) {
 	clone := *m
 	clone.Signature = ""
@@ -22,8 +17,6 @@ func canonicalManifest(m *Manifest) ([]byte, error) {
 	return raw, nil
 }
 
-// SignManifest computes the Ed25519 signature over the canonical manifest and
-// returns it as base64. The private key is held solely by the publisher.
 func SignManifest(priv ed25519.PrivateKey, m *Manifest) (string, error) {
 	if len(priv) != ed25519.PrivateKeySize {
 		return "", fmt.Errorf("invalid ed25519 private key length %d", len(priv))
@@ -36,9 +29,6 @@ func SignManifest(priv ed25519.PrivateKey, m *Manifest) (string, error) {
 	return base64.StdEncoding.EncodeToString(sig), nil
 }
 
-// VerifyManifestSignatureWithKey verifies m.Signature against pubKeyBase64 (the
-// base64-encoded 32-byte Ed25519 public key). Returns false on any failure,
-// including an empty key — verification is fail-closed.
 func VerifyManifestSignatureWithKey(m *Manifest, pubKeyBase64 string) bool {
 	if m == nil || pubKeyBase64 == "" {
 		return false

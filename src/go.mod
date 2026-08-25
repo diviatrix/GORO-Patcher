@@ -3,7 +3,6 @@ module github.com/diviatrix/GORO-Patcher
 go 1.25.0
 
 require (
-	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/gomarkdown/markdown v0.0.0-20260725000948-8435af3f5984
 	github.com/wailsapp/wails/v3 v3.0.0-beta.4
 	golang.org/x/text v0.40.0

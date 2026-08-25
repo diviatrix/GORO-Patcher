@@ -73,7 +73,7 @@ Files are extracted to the game folder. Existing files are backed up to `.bak` b
 
 ## Step 3: Calculate Hash and Size
 
-Use the included `hashfile` tool to generate XXHash64 hashes:
+Use the included `hashfile` tool to generate SHA-256 hashes:
 
 ```bash
 # Linux
@@ -83,8 +83,8 @@ Use the included `hashfile` tool to generate XXHash64 hashes:
 build\hashfile.exe patch_0.grf
 ```
 
-Output: `a899ed08439de698  200627214  patch_0.grf`
-- First column: hash (16-char hex)
+Output: `<sha256 hex, 64 chars>  200627214  patch_0.grf`
+- First column: hash (64-char hex)
 - Second column: file size in bytes
 - Third column: filename
 
@@ -101,7 +101,7 @@ Copy the hash and size into your manifest.
     {
       "id": 1,
       "name": "patch_0.grf",
-      "hash": "a899ed08439de698",
+      "hash": "GENERATED_HASH",
       "size": 200627214,
       "type": "grf",
       "target": "sdata.grf"
@@ -115,7 +115,7 @@ Copy the hash and size into your manifest.
 | `patch_base_url` | Where patch files are hosted |
 | `patches[].id` | Sequential number. IS the version — no separate version field. |
 | `patches[].name` | Filename on server |
-| `patches[].hash` | XXHash64, lowercase hex, 16 chars |
+| `patches[].hash` | SHA-256, lowercase hex, 64 chars |
 | `patches[].size` | File size in bytes |
 | `patches[].type` | `"grf"` or `"raw"` |
 | `patches[].target` | **Your GRF filename** or relative path — whatever your server uses |
@@ -160,8 +160,8 @@ Players just run the patcher. It checks for updates, downloads, applies, and ena
 {
   "patch_base_url": "https://patches.yourserver.com/",
   "patches": [
-    { "id": 1, "name": "patch_0.grf", "hash": "a899ed08439de698", "size": 200627214, "type": "grf", "target": "sdata.grf" },
-    { "id": 2, "name": "patch_1.zip", "hash": "ca7c90486d2f7a42", "size": 542, "type": "raw", "target": "System/itemInfo.lub" }
+    { "id": 1, "name": "patch_0.grf", "hash": "GENERATED_HASH", "size": 200627214, "type": "grf", "target": "sdata.grf" },
+    { "id": 2, "name": "patch_1.zip", "hash": "GENERATED_HASH", "size": 542, "type": "raw", "target": "System/itemInfo.lub" }
   ]
 }
 ```
@@ -289,7 +289,7 @@ You can use test GRF from `example/data/patch_0.grf` or create your own.
 ```bash
 cd ~/test-patches/data/
 /path/to/build/hashfile patch_0.grf
-# Output: a899ed08439de698  200627214  patch_0.grf
+# Output: <sha256 hex, 64 chars>  200627214  patch_0.grf
 ```
 
 ### Step 3: Create manifest

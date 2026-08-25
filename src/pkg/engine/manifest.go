@@ -10,10 +10,10 @@ type Manifest struct {
 	AllowStartOnError bool    `json:"allow_start_on_error"`
 	NewsURL           string  `json:"news_url"`
 	PatcherURL        string  `json:"patcher_url"`
-	PatcherHash       string  `json:"patcher_hash"`     // SHA-256 hex of the patcher binary (release builds)
-	PatcherVersion    int     `json:"patcher_version"` // monotonic patcher release number; self-update only when newer
+	PatcherHash       string  `json:"patcher_hash"`
+	PatcherVersion    int     `json:"patcher_version"`
 	PatcherSize       int64   `json:"patcher_size"`
-	Signature         string  `json:"signature,omitempty"` // Ed25519 signature; required in release builds
+	Signature         string  `json:"signature,omitempty"`
 	Patches           []Patch `json:"patches"`
 }
 
@@ -72,8 +72,7 @@ func NeedsUpdate(m *Manifest, localVersion int) bool {
 // NeedsSelfUpdate reports whether the manifest advertises a newer patcher build
 // worth applying. A path is only offered when the manifest declares both a URL
 // and a SHA-256, and only if PatcherVersion strictly exceeds the current build
-// number — this refuses rollback/downgrade, so a tampered or stale manifest
-// cannot force the running binary down.
+// number.
 func NeedsSelfUpdate(m *Manifest) bool {
 	return m != nil && m.PatcherURL != "" && m.PatcherHash != "" && m.PatcherVersion > CurrentPatcherVersion
 }

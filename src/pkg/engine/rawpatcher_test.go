@@ -148,7 +148,6 @@ func TestSafePatchComponent(t *testing.T) {
 		{"C:\\outside.grf", "", false},
 		{"dir/../escape.grf", "", false},
 
-		// Windows namespace hardening (rejected uniformly).
 		{"NUL", "", false},
 		{"nul.grf", "", false},
 		{"CON.txt", "", false},

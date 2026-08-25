@@ -40,9 +40,6 @@ func TestSignAndVerifyRoundTrip(t *testing.T) {
 	}
 }
 
-// Signing and verification share one canonical form, so a manifest that has been
-// re-serialized (as the publisher writes it, then as the patcher re-parses it)
-// must still verify — whitespace and key order must not matter.
 func TestSignVerifySurvivesRoundTrip(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(nil)
 
@@ -75,7 +72,6 @@ func TestVerifyRejectsTampering(t *testing.T) {
 	sig, _ := SignManifest(priv, m)
 	m.Signature = sig
 
-	// Any tamper, even whitespace-scrubbed re-encoding, must invalidate the sig.
 	m.Patches[0].Target = "evil.grf"
 	if VerifyManifestSignatureWithKey(m, pubB64) {
 		t.Error("tampered manifest verified — signature does not cover content")
@@ -85,18 +81,15 @@ func TestVerifyRejectsTampering(t *testing.T) {
 func TestVerifyFailsClosed(t *testing.T) {
 	m := sampleManifest()
 
-	// No key configured (release build with empty embedded key) must reject.
 	if VerifyManifestSignatureWithKey(m, "") {
 		t.Error("verification with empty public key must fail closed")
 	}
 
-	// Bad public key encoding.
 	if VerifyManifestSignatureWithKey(m, "not-base64!!") {
 		t.Error("verification with malformed public key must fail")
 	}
 }
 
-// NeedsSelfUpdate must refuse downgrades and require a strictly newer version.
 func TestNeedsSelfUpdateVersionGate(t *testing.T) {
 	cases := []struct {
 		name string

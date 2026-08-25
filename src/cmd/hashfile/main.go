@@ -12,15 +12,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cespare/xxhash/v2"
 	"github.com/diviatrix/GORO-Patcher/pkg/engine"
 )
 
 func main() {
-	// The default, subcommand-less mode prints an XXHash64 integrity hash for
-	// each file — unchanged legacy behavior used for patch files.
 	if len(os.Args) < 2 || (len(os.Args[1]) == 0 || os.Args[1][0] != '-') && !isSubcommand(os.Args[1]) {
-		hashFilesLegacy(os.Args[1:])
+		hashFilesSHA256(os.Args[1:])
 		return
 	}
 
@@ -52,10 +49,10 @@ func usage() {
 	fmt.Fprint(os.Stderr, `Usage: hashfile [COMMAND] [ARGS]
 
 No command (default):
-  hashfile <file>...          Print XXHash64 + size (patch-file integrity)
+  hashfile <file>...          Print SHA-256 + size (patch-file integrity)
 
 Commands:
-  hashfile sha256 <file>...   Print SHA-256 + size (use for patcher_hash)
+  hashfile sha256 <file>...   Print SHA-256 + size (alias of the default)
   hashfile genkey             Generate an Ed25519 keypair (release signing)
       -out key.pem            Private key (PKCS#8 PEM) [default: key.pem]
       -pub pub.pem            Public key (PKIX PEM) [default: pub.pem]
@@ -72,38 +69,6 @@ genkey also prints the base64 public key to paste into
 pkg/engine/manifest_verify_release.go for release builds.
 `)
 }
-
-// ---- legacy XXHash64 -------------------------------------------------------------
-
-func hashFilesLegacy(paths []string) {
-	if len(paths) == 0 {
-		usage()
-		os.Exit(2)
-	}
-	for _, path := range paths {
-		hash, err := hashFileXX(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %v\n", path, err)
-			continue
-		}
-		info, err := os.Stat(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %v\n", path, err)
-			continue
-		}
-		fmt.Printf("%s  %d  %s\n", hash, info.Size(), path)
-	}
-}
-
-func hashFileXX(path string) (string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%016x", xxhash.Sum64(data)), nil
-}
-
-// ---- sha256 ---------------------------------------------------------------------
 
 func hashFilesSHA256(paths []string) {
 	if len(paths) == 0 {
@@ -128,8 +93,6 @@ func sha256File(path string) (sum string, size int64, err error) {
 	h := sha256.Sum256(data)
 	return hex.EncodeToString(h[:]), int64(len(data)), nil
 }
-
-// ---- keys -----------------------------------------------------------------------
 
 func genkey(args []string) {
 	fs := flag.NewFlagSet("genkey", flag.ExitOnError)
@@ -188,8 +151,6 @@ func loadPrivateKey(path string) ed25519.PrivateKey {
 	return ed
 }
 
-// loadPublicKey returns the base64 (raw 32-byte) form of the public key, which
-// is what the engine's verification consumes.
 func loadPublicKeyBase64(path string) string {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -209,8 +170,6 @@ func loadPublicKeyBase64(path string) string {
 	}
 	return base64.StdEncoding.EncodeToString(ed)
 }
-
-// ---- manifest sign / verify -----------------------------------------------------
 
 func sign(args []string) {
 	fs := flag.NewFlagSet("sign", flag.ExitOnError)

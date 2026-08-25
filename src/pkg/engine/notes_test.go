@@ -134,9 +134,6 @@ func TestSortNotesByIDDescEmpty(t *testing.T) {
 	}
 }
 
-// TestRenderMarkdownSanitizes verifies that untrusted markdown — the feed is an
-// unauthenticated content channel — cannot survive as live markup or a
-// script-capable URL when injected into the DOM via innerHTML.
 func TestRenderMarkdownSanitizes(t *testing.T) {
 	tests := []struct {
 		name        string

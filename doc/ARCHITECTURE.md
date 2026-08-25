@@ -38,7 +38,7 @@ src/
     │   └── patcher.go          # GRF merge + zip→GRF
     ├── downloader/
     │   ├── downloader.go       # HTTP client with resume
-    │   └── hash.go             # XXHash64 verification
+    │   └── hash.go             # SHA-256 verification
     ├── detector/               # Process detection
     └── updater/                # Self-update
 ```
@@ -176,9 +176,13 @@ sharpest edge of manifest-content trust. It is protected by four layered gates:
    at compile time via the `release` build tag (`build.sh --release`), so a
    shipped binary cannot be downgraded to plaintext.
 3. **SHA-256 binary integrity.** `updater.Update` verifies the downloaded binary
-   with `downloader.VerifySHA256File` against `PatcherHash`. Now that the hash
-   arrives inside a signed manifest it is trustworthy, and SHA-256 replaces the
-   non-cryptographic XXHash64 previously relied on in this path.
+   with `downloader.VerifyFile` against `PatcherHash`. The departed XXHash64 is
+   gone everywhere: patch downloads (`app.go`), installed-file validation
+   (`LocalState.Validate`, `full GRF check`) and self-update all use the unified
+   SHA-256 integrity functions in `pkg/downloader/hash.go`. Now that these
+   hashes arrive inside a signed manifest they are trustworthy, and SHA-256 (a
+   cryptographic hash) resists the collision/preimage craft that a
+   non-cryptographic checksum could not.
 4. **Rollback gate.** `engine.NeedsSelfUpdate` requires
    `PatcherVersion > CurrentPatcherVersion` (a monotonic integer bumped per
    release in `engine/version.go`). Updates to the same or an older version are
