@@ -4,6 +4,7 @@
 
 ### Security
 
+- **Patch-note XSS (DOM) — notes are now sanitized** — rendered markdown is scrubbed at the gomarkdown AST stage before it reaches the frontend's `innerHTML`: raw HTML nodes (`<script>`, event attributes, `<img onerror>` …) are dropped, and link/image destinations are kept only when they are `http(s)` URLs (`javascript:`, `data:`, `file:` and relative targets are stripped). Notes are an unauthenticated content channel, so untrusted note text can no longer inject markup into the patcher UI. Inline code is preserved (escaped by the renderer).
 - **Manifest signing (Ed25519)** — `plist.json` is now signed by the publisher (`hashfile genkey` / `sign`) and verified against an embedded public key before any field is trusted. Release builds (`build.sh --release`) refuse unsigned or tampered manifests; dev builds skip verification so local, unsigned manifests keep working.
 - **HTTPS-only release transport** — release builds reject every scheme except `https://` for all fetched content (manifest, patches, patcher binary, notes). Dev builds still allow `http://`/`file://` for local testing. Selected at compile time via the `release` build tag, so a shipped binary cannot be downgraded.
 - **SHA-256 patcher integrity** — the self-update binary is now verified with SHA-256 instead of the non-cryptographic XXHash64.

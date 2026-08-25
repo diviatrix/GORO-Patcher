@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -130,6 +131,79 @@ func TestSortNotesByIDDescEmpty(t *testing.T) {
 	SortNotesByIDDesc(notes)
 	if len(notes) != 0 {
 		t.Errorf("expected empty slice, got %d items", len(notes))
+	}
+}
+
+// TestRenderMarkdownSanitizes verifies that untrusted markdown — the feed is an
+// unauthenticated content channel — cannot survive as live markup or a
+// script-capable URL when injected into the DOM via innerHTML.
+func TestRenderMarkdownSanitizes(t *testing.T) {
+	tests := []struct {
+		name        string
+		md          string
+		notContain  []string
+		mustContain []string
+	}{
+		{
+			name:       "raw script tag",
+			md:         "<script>alert(1)</script>",
+			notContain: []string{"<script", "<script>"},
+		},
+		{
+			name:       "img onerror",
+			md:         "<img src=x onerror=alert(1)>",
+			notContain: []string{"onerror", "<img"},
+		},
+		{
+			name:       "div onclick attribute",
+			md:         "<div onclick=alert(1)>hi</div>",
+			notContain: []string{"onclick", "<div"},
+		},
+		{
+			name:       "markdown javascript URL",
+			md:         "[click](javascript:alert(1))",
+			notContain: []string{"javascript:"},
+		},
+		{
+			name:       "markdown data image URL",
+			md:         "![pwn](data:image/svg+xml;base64,SSbmVytex)",
+			notContain: []string{"data:", "src="},
+		},
+		{
+			name:        "safe https link preserved",
+			md:          "[docs](https://example.com/x)",
+			notContain:  []string{"javascript:"},
+			mustContain: []string{"https://example.com/x"},
+		},
+		{
+			name:        "code span stays escaped",
+			md:          "run `<script>alert(1)</script>`",
+			notContain:  []string{"<script>"},
+			mustContain: []string{"&lt;script&gt;"},
+		},
+		{
+			name:        "normal prose intact",
+			md:          "**bold** and a https link",
+			notContain:  []string{"javascript:"},
+			mustContain: []string{"<strong>bold</strong>"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := RenderMarkdown([]byte(tt.md))
+			for _, bad := range tt.notContain {
+				if c := strings.Count(got, bad); c > 0 {
+					t.Errorf("RenderMarkdown(%q) contains %q (%d occurrence(s)):\n%s",
+						tt.md, bad, c, got)
+				}
+			}
+			for _, good := range tt.mustContain {
+				if !strings.Contains(got, good) {
+					t.Errorf("RenderMarkdown(%q) missing %q:\n%s", tt.md, good, got)
+				}
+			}
+		})
 	}
 }
 

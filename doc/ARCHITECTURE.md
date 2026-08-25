@@ -191,10 +191,22 @@ Optional feature. Displays markdown content in the notes section of the UI.
 1. Frontend calls `App.GetNotes()` on init
 2. Go fetches `notes.json` from `notes_url` in config
 3. For each note entry, fetches `.md` from `notes_base_url + name`
-4. Renders markdown to HTML using `gomarkdown/markdown`
+4. Renders markdown to HTML using `gomarkdown/markdown`, then sanitizes the
+   result at the AST stage (`engine.sanitizeHTMLAST`) before it is returned;
+   the frontend injects it via `innerHTML`
 5. Optionally fetches custom CSS from `notes_css_url`
 6. Returns rendered notes (sorted by ID desc) + CSS to frontend
 7. Frontend injects HTML and CSS into notes section
+
+**Sanitization (XSS defense).** Notes are an unauthenticated content channel, so
+their rendered HTML is cleaned before it reaches the DOM. `RenderMarkdown`
+parses to a gomarkdown AST, drops raw-HTML nodes (`HTMLBlock`/`HTMLSpan` — the
+vehicle for `<script>`, event attributes, `<img onerror>`) and keeps link/image
+destinations only when they are `http(s)` URLs. So `[x](javascript:…)`,
+`![x](data:…)`, raw `<script>`, and event-handler attributes all fail to render
+as live markup; inline code spans are preserved because the renderer escapes
+their contents. This keeps the frontend's `innerHTML` safe without hand-parsing
+an HTML string (which is error-prone).
 
 Notes are fetched on every app start. No local caching. If `notes_url` is empty, notes are disabled.
 
