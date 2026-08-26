@@ -2,6 +2,6 @@
 
 package engine
 
-func VerifyManifestSignature(m *Manifest) bool {
+func MissingKeyAllowsUnsigned() bool {
 	return true
 }

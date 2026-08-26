@@ -280,3 +280,183 @@ func createTestZip(t *testing.T, files map[string]string) string {
 	os.WriteFile(zipPath, buf.Bytes(), 0644)
 	return zipPath
 }
+
+type grfEntrySpec struct {
+	name            string
+	data            []byte
+	uncompressedSize uint32
+	flags           byte
+	alignPad        uint32
+}
+
+func buildGRFFromEntries(t *testing.T, headerCountMinus7 uint32, entries []grfEntrySpec) []byte {
+	t.Helper()
+
+	var fileTable bytes.Buffer
+	dataOffset := uint32(0)
+	for _, e := range entries {
+		fileTable.WriteString(e.name)
+		fileTable.WriteByte(0)
+		binary.Write(&fileTable, binary.LittleEndian, uint32(len(e.data)))
+		binary.Write(&fileTable, binary.LittleEndian, uint32(len(e.data))+e.alignPad)
+		binary.Write(&fileTable, binary.LittleEndian, e.uncompressedSize)
+		fileTable.WriteByte(e.flags)
+		binary.Write(&fileTable, binary.LittleEndian, dataOffset)
+		dataOffset += uint32(len(e.data))
+	}
+
+	compressedFT := compressZlib(t, fileTable.Bytes())
+	ftSeekOffset := dataOffset
+
+	var grf bytes.Buffer
+	header := make([]byte, grfHeaderSize)
+	copy(header, "Master of Magic")
+	header[15] = 0
+	binary.LittleEndian.PutUint32(header[0x26:0x2A], headerCountMinus7)
+	binary.LittleEndian.PutUint32(header[0x1E:0x22], ftSeekOffset)
+	grf.Write(header)
+
+	for _, e := range entries {
+		grf.Write(e.data)
+	}
+
+	binary.Write(&grf, binary.LittleEndian, uint32(len(compressedFT)))
+	binary.Write(&grf, binary.LittleEndian, uint32(fileTable.Len()))
+	grf.Write(compressedFT)
+
+	return grf.Bytes()
+}
+
+func TestOpenRejectsFileTableExceedingFile(t *testing.T) {
+	var grf bytes.Buffer
+	header := make([]byte, grfHeaderSize)
+	copy(header, "Master of Magic")
+	header[15] = 0
+	binary.LittleEndian.PutUint32(header[0x26:0x2A], 7)
+	grf.Write(header)
+
+	binary.Write(&grf, binary.LittleEndian, uint32(1<<31))
+	binary.Write(&grf, binary.LittleEndian, uint32(8))
+
+	path := writeTempGRF(t, grf.Bytes())
+
+	if _, err := Open(path); err == nil {
+		t.Error("expected error when claimed file table size exceeds file")
+	}
+}
+
+func TestOpenRejectsNegativeFileCount(t *testing.T) {
+	var grf bytes.Buffer
+	header := make([]byte, grfHeaderSize)
+	copy(header, "Master of Magic")
+	header[15] = 0
+	binary.LittleEndian.PutUint32(header[0x26:0x2A], 3)
+	grf.Write(header)
+
+	path := writeTempGRF(t, grf.Bytes())
+
+	if _, err := Open(path); err == nil {
+		t.Error("expected error for negative file count")
+	}
+}
+
+func TestOpenRejectsFileTableBomb(t *testing.T) {
+	bomb := compressZlib(t, bytes.Repeat([]byte{0}, 1<<16))
+
+	var grf bytes.Buffer
+	header := make([]byte, grfHeaderSize)
+	copy(header, "Master of Magic")
+	header[15] = 0
+	binary.LittleEndian.PutUint32(header[0x26:0x2A], 7)
+	binary.LittleEndian.PutUint32(header[0x1E:0x22], 0)
+	grf.Write(header)
+
+	binary.Write(&grf, binary.LittleEndian, uint32(len(bomb)))
+	binary.Write(&grf, binary.LittleEndian, uint32(16))
+	grf.Write(bomb)
+
+	path := writeTempGRF(t, grf.Bytes())
+
+	if _, err := Open(path); err == nil {
+		t.Error("expected error when file table decompresses beyond declared size")
+	}
+}
+
+func TestReadFileRejectsDecompressionBomb(t *testing.T) {
+	bomb := compressZlib(t, bytes.Repeat([]byte{0}, 1<<16))
+	entries := []grfEntrySpec{{
+		name:            "bomb.txt",
+		data:            bomb,
+		uncompressedSize: 16,
+		flags:           1,
+	}}
+
+	grfData := buildGRFFromEntries(t, uint32(1)+7, entries)
+	path := writeTempGRF(t, grfData)
+
+	g, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+
+	if _, err := g.ReadFile("bomb.txt"); err == nil {
+		t.Error("expected error when entry decompresses beyond declared size")
+	}
+}
+
+func TestReadFilePaddedAlignedSize(t *testing.T) {
+	content := []byte("payload whose aligned size carries padding")
+	compressed := compressZlib(t, content)
+	entries := []grfEntrySpec{{
+		name:            "padded.bin",
+		data:            compressed,
+		uncompressedSize: uint32(len(content)),
+		flags:           1,
+		alignPad:        12,
+	}}
+
+	grfData := buildGRFFromEntries(t, uint32(1)+7, entries)
+	path := writeTempGRF(t, grfData)
+
+	g, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+
+	got, err := g.ReadFile("padded.bin")
+	if err != nil {
+		t.Fatalf("read padded entry: %v", err)
+	}
+	if string(got) != string(content) {
+		t.Errorf("padded entry read = %q, want %q", string(got), string(content))
+	}
+}
+
+func TestReadFileStoredEntry(t *testing.T) {
+	raw := []byte("stored raw bytes, not compressed")
+	entries := []grfEntrySpec{{
+		name:            "raw.bin",
+		data:            raw,
+		uncompressedSize: uint32(len(raw)),
+		flags:           0,
+	}}
+
+	grfData := buildGRFFromEntries(t, uint32(1)+7, entries)
+	path := writeTempGRF(t, grfData)
+
+	g, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+
+	data, err := g.ReadFile("raw.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != string(raw) {
+		t.Errorf("stored entry read = %q, want %q", string(data), string(raw))
+	}
+}

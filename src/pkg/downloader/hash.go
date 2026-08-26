@@ -2,6 +2,7 @@ package downloader
 
 import (
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -32,7 +33,7 @@ func VerifyFile(path, expectedHash string) error {
 	if err != nil {
 		return fmt.Errorf("hash file: %w", err)
 	}
-	if actual != expectedHash {
+	if subtle.ConstantTimeCompare([]byte(actual), []byte(expectedHash)) != 1 {
 		return fmt.Errorf("hash mismatch: expected %s, got %s", expectedHash, actual)
 	}
 	return nil

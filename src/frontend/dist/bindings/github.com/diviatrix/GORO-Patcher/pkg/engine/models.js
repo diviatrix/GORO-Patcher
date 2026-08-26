@@ -6,48 +6,6 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "/wails/runtime.js";
 
-export class ErrorEvent {
-    /**
-     * Creates a new ErrorEvent instance.
-     * @param {Partial<ErrorEvent>} [$$source = {}] - The source object to create the ErrorEvent.
-     */
-    constructor($$source = {}) {
-        if (!("code" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["code"] = "";
-        }
-        if (!("message" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["message"] = "";
-        }
-        if (!("fatal" in $$source)) {
-            /**
-             * @member
-             * @type {boolean}
-             */
-            this["fatal"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ErrorEvent instance from a string or object.
-     * @param {any} [$$source = {}]
-     * @returns {ErrorEvent}
-     */
-    static createFrom($$source = {}) {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ErrorEvent(/** @type {Partial<ErrorEvent>} */($$parsedSource));
-    }
-}
-
 export class GRFCheckReport {
     /**
      * Creates a new GRFCheckReport instance.
@@ -151,62 +109,6 @@ export class GRFCheckResult {
             $$parsedSource["failed"] = $$createField2_0($$parsedSource["failed"]);
         }
         return new GRFCheckResult(/** @type {Partial<GRFCheckResult>} */($$parsedSource));
-    }
-}
-
-export class ProgressEvent {
-    /**
-     * Creates a new ProgressEvent instance.
-     * @param {Partial<ProgressEvent>} [$$source = {}] - The source object to create the ProgressEvent.
-     */
-    constructor($$source = {}) {
-        if (!("status" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["status"] = "";
-        }
-        if (!("currentFile" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["currentFile"] = "";
-        }
-        if (!("filePercent" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["filePercent"] = 0;
-        }
-        if (!("totalPercent" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["totalPercent"] = 0;
-        }
-        if (!("speed" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["speed"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ProgressEvent instance from a string or object.
-     * @param {any} [$$source = {}]
-     * @returns {ProgressEvent}
-     */
-    static createFrom($$source = {}) {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ProgressEvent(/** @type {Partial<ProgressEvent>} */($$parsedSource));
     }
 }
 

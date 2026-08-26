@@ -33,12 +33,25 @@ type Downloader struct {
 }
 
 func New(maxRetry int) *Downloader {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.ResponseHeaderTimeout = 30 * time.Second
+	transport.IdleConnTimeout = 90 * time.Second
+
 	return &Downloader{
 		client: &http.Client{
-			Timeout: 0,
+			Transport:       transport,
+			CheckRedirect:   checkRedirect,
+			Timeout:         0,
 		},
 		maxRetry: maxRetry,
 	}
+}
+
+func checkRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	return validateURL(req.URL.String())
 }
 
 func (d *Downloader) FetchBytes(ctx context.Context, url string) ([]byte, error) {
@@ -80,16 +93,17 @@ func (d *Downloader) FetchBytes(ctx context.Context, url string) ([]byte, error)
 			continue
 		}
 
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			lastErr = fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
+			continue
+		}
+
 		data, err := readLimited(resp.Body, maxFetchBytes)
 		resp.Body.Close()
 
 		if err != nil {
 			lastErr = err
-			continue
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			lastErr = fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
 			continue
 		}
 

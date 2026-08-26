@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -33,6 +34,49 @@ func TestPatchRaw(t *testing.T) {
 	}
 	if string(content) != "new bitmap" {
 		t.Errorf("got %q, want %q", string(content), "new bitmap")
+	}
+}
+
+func TestPatchRawRejectsSymlinkEscape(t *testing.T) {
+	gameDir := t.TempDir()
+	outside := t.TempDir()
+
+	if err := os.Symlink(outside, filepath.Join(gameDir, "data")); err != nil {
+		t.Skip("cannot create symlink in this environment")
+	}
+
+	zipPath := createRawTestZip(t, map[string]string{
+		"data/pwn.txt": "owned",
+	})
+
+	if err := PatchRaw(gameDir, zipPath); err == nil {
+		t.Fatal("PatchRaw must refuse to write through a symlink escaping the game dir")
+	}
+	if _, err := os.Stat(filepath.Join(outside, "pwn.txt")); !os.IsNotExist(err) {
+		t.Error("PatchRaw wrote outside the game dir through a symlink")
+	}
+}
+
+func TestPatchRawLeavesNoTempFiles(t *testing.T) {
+	gameDir := t.TempDir()
+	zipPath := createRawTestZip(t, map[string]string{
+		"a.bin":       "one",
+		"sub/b.bin":   "two",
+	})
+
+	if err := PatchRaw(gameDir, zipPath); err != nil {
+		t.Fatal(err)
+	}
+
+	var leftovers []string
+	filepath.Walk(gameDir, func(path string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() && strings.Contains(filepath.Base(path), ".goro-") {
+			leftovers = append(leftovers, path)
+		}
+		return nil
+	})
+	if len(leftovers) != 0 {
+		t.Errorf("PatchRaw left temp files behind: %v", leftovers)
 	}
 }
 
@@ -253,6 +297,18 @@ func TestCleanupStaleFilesDeletesBakWhenTargetOK(t *testing.T) {
 	info, _ := os.Stat(filepath.Join(dir, "myserver.grf"))
 	if info.Size() != 2048 {
 		t.Error("target should be untouched")
+	}
+}
+
+func TestCleanupStaleFilesPreservesUserRootBak(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "ragexe.exe"), []byte("game exe"), 0644)
+	os.WriteFile(filepath.Join(dir, "ragexe.exe.bak"), []byte("user backup"), 0644)
+
+	CleanupStaleFiles(dir)
+
+	if _, err := os.Stat(filepath.Join(dir, "ragexe.exe.bak")); err != nil {
+		t.Error("user root .bak for a non-GRF target must not be deleted")
 	}
 }
 

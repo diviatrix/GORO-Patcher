@@ -1,3 +1,5 @@
+//go:build !release
+
 package downloader
 
 import (
@@ -10,6 +12,30 @@ import (
 	"sync/atomic"
 	"testing"
 )
+
+func TestCheckRedirectAllowsHTTPInDev(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://example.com/x", nil)
+	if err := checkRedirect(req, nil); err != nil {
+		t.Errorf("dev checkRedirect must allow http redirects for local testing: %v", err)
+	}
+}
+
+func TestNewConfiguresRedirectAndTimeout(t *testing.T) {
+	dl := New(3)
+	if dl.client == nil {
+		t.Fatal("client not configured")
+	}
+	if dl.client.CheckRedirect == nil {
+		t.Error("expected CheckRedirect to be configured")
+	}
+	tr, ok := dl.client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("unexpected transport type %T", dl.client.Transport)
+	}
+	if tr.ResponseHeaderTimeout <= 0 {
+		t.Error("expected a ResponseHeaderTimeout to be configured")
+	}
+}
 
 func TestFetchBytes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

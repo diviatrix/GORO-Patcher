@@ -11,6 +11,11 @@ import (
 )
 
 func PatchRaw(gamePath, zipPath string) error {
+	realBase, err := filepath.EvalSymlinks(gamePath)
+	if err != nil {
+		return fmt.Errorf("resolve game dir: %w", err)
+	}
+
 	zr, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return fmt.Errorf("open zip: %w", err)
@@ -34,6 +39,18 @@ func PatchRaw(gamePath, zipPath string) error {
 			return fmt.Errorf("mkdir %s: %w", dir, err)
 		}
 
+		realDir, err := filepath.EvalSymlinks(dir)
+		if err != nil {
+			return fmt.Errorf("resolve dir %s: %w", dir, err)
+		}
+		if !withinPath(realBase, realDir) {
+			return fmt.Errorf("refusing to write outside game dir: %s", name)
+		}
+
+		if fi, err := os.Lstat(dest); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refusing to write through symlink: %s", name)
+		}
+
 		if _, err := os.Stat(dest); err == nil {
 			bakPath := filepath.Join(gamePath, ".goro-backups", name+".bak")
 			if err := os.MkdirAll(filepath.Dir(bakPath), 0755); err != nil {
@@ -49,25 +66,43 @@ func PatchRaw(gamePath, zipPath string) error {
 			return fmt.Errorf("open zip entry %s: %w", file.Name, err)
 		}
 
-		out, err := os.Create(dest)
+		tmp, err := os.CreateTemp(dir, filepath.Base(dest)+".goro-*")
 		if err != nil {
 			rc.Close()
-			return fmt.Errorf("create %s: %w", dest, err)
+			return fmt.Errorf("create temp for %s: %w", name, err)
 		}
 
-		_, err = io.Copy(out, rc)
-		out.Close()
+		_, err = io.Copy(tmp, rc)
+		closeErr := tmp.Close()
 		rc.Close()
 		if err != nil {
+			os.Remove(tmp.Name())
 			return fmt.Errorf("write %s: %w", dest, err)
+		}
+		if closeErr != nil {
+			os.Remove(tmp.Name())
+			return fmt.Errorf("close temp for %s: %w", dest, closeErr)
 		}
 
 		if file.Mode()&0111 != 0 {
-			os.Chmod(dest, 0755)
+			os.Chmod(tmp.Name(), 0755)
+		}
+
+		if err := os.Rename(tmp.Name(), dest); err != nil {
+			os.Remove(tmp.Name())
+			return fmt.Errorf("commit %s: %w", dest, err)
 		}
 	}
 
 	return nil
+}
+
+func withinPath(base, target string) bool {
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 
 func SanitizePath(path string) string {
@@ -178,6 +213,9 @@ func CleanupStaleFiles(gamePath string) error {
 	baks, _ := filepath.Glob(filepath.Join(gamePath, "*.bak"))
 	for _, bak := range baks {
 		target := bak[:len(bak)-4]
+		if !strings.HasSuffix(strings.ToLower(target), ".grf") {
+			continue
+		}
 		if needsRestore(target) {
 			log.Printf("[recovery] Restoring %s from %s", target, bak)
 			os.Rename(bak, target)

@@ -9,6 +9,10 @@ import (
 )
 
 func IsGameRunning(exeName string) (bool, error) {
+	if strings.TrimSpace(exeName) == "" {
+		return false, nil
+	}
+
 	switch runtime.GOOS {
 	case "windows":
 		return isRunningWindows(exeName)

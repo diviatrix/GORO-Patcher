@@ -68,10 +68,13 @@ func patchGRFFromZip(grfPath, zipPath string, progress ProgressFunc) error {
 			return fmt.Errorf("open zip entry %s: %w", file.Name, err)
 		}
 
-		data, err := io.ReadAll(rc)
+		data, err := io.ReadAll(io.LimitReader(rc, int64(file.UncompressedSize64)+1))
 		rc.Close()
 		if err != nil {
 			return fmt.Errorf("read zip entry %s: %w", file.Name, err)
+		}
+		if int64(len(data)) > int64(file.UncompressedSize64) {
+			return fmt.Errorf("zip entry %s exceeds declared size", file.Name)
 		}
 
 		name := normalizeGRFPath(file.Name)

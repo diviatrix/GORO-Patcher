@@ -28,8 +28,6 @@ func main() {
 		},
 	})
 
-	myApp.SetApp(app)
-
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "GORO Patcher",
 		Width:     800,

@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/diviatrix/GORO-Patcher/pkg/detector"
@@ -15,6 +17,7 @@ import (
 	"github.com/diviatrix/GORO-Patcher/pkg/engine"
 	"github.com/diviatrix/GORO-Patcher/pkg/grf"
 	"github.com/diviatrix/GORO-Patcher/pkg/updater"
+
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -27,7 +30,6 @@ type ProgressInfo struct {
 }
 
 type App struct {
-	app      *application.App
 	ctx      context.Context
 	engine   *engine.Engine
 	config   *engine.Config
@@ -36,10 +38,14 @@ type App struct {
 	updater  *updater.Updater
 	cancelFn context.CancelFunc
 
-	progressMu   sync.Mutex
-	progressInfo ProgressInfo
+	mu           sync.Mutex
 	needsRepair  bool
 	repairFromID int
+
+	progressMu   sync.Mutex
+	progressInfo ProgressInfo
+	cycleActive  atomic.Bool
+	cancelMu     sync.Mutex
 }
 
 func NewApp() *App {
@@ -54,8 +60,30 @@ func NewApp() *App {
 	}
 }
 
-func (a *App) SetApp(app *application.App) {
-	a.app = app
+func (a *App) configSnapshot() engine.Config {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return *a.config
+}
+
+func (a *App) setRepairNeeded(fromID int) {
+	a.mu.Lock()
+	a.needsRepair = true
+	a.repairFromID = fromID
+	a.mu.Unlock()
+}
+
+func (a *App) clearRepair() {
+	a.mu.Lock()
+	a.needsRepair = false
+	a.repairFromID = 0
+	a.mu.Unlock()
+}
+
+func (a *App) repairInfo() (bool, int) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.needsRepair, a.repairFromID
 }
 
 func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
@@ -91,9 +119,7 @@ func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOpt
 }
 
 func (a *App) ServiceShutdown(ctx context.Context) error {
-	if a.cancelFn != nil {
-		a.cancelFn()
-	}
+	a.cancelCurrent()
 	return nil
 }
 
@@ -116,13 +142,40 @@ func (a *App) setProgress(status, currentFile string, filePct, totalPct float64,
 }
 
 func (a *App) NeedsRepair() bool {
-	return a.needsRepair
+	ok, _ := a.repairInfo()
+	return ok
+}
+
+func (a *App) setCancel(cancel context.CancelFunc) {
+	a.cancelMu.Lock()
+	a.cancelFn = cancel
+	a.cancelMu.Unlock()
+}
+
+func (a *App) cancelCurrent() {
+	a.cancelMu.Lock()
+	cancel := a.cancelFn
+	a.cancelMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func (a *App) beginCycle(kind string) error {
+	if !a.cycleActive.CompareAndSwap(false, true) {
+		return fmt.Errorf("cannot start %s: a cycle is already running", kind)
+	}
+	state := a.engine.State()
+	if state != engine.StateIdle && state != engine.StateReady && state != engine.StateError {
+		a.cycleActive.Store(false)
+		return fmt.Errorf("cannot start %s in state %s", kind, state)
+	}
+	return nil
 }
 
 func (a *App) StartCheck() error {
-	state := a.engine.State()
-	if state != engine.StateIdle && state != engine.StateReady && state != engine.StateError {
-		return fmt.Errorf("cannot start check in state %s", state)
+	if err := a.beginCycle("check"); err != nil {
+		return err
 	}
 
 	go a.runCheckCycle()
@@ -130,9 +183,8 @@ func (a *App) StartCheck() error {
 }
 
 func (a *App) StartRepair() error {
-	state := a.engine.State()
-	if state != engine.StateIdle && state != engine.StateReady && state != engine.StateError {
-		return fmt.Errorf("cannot start repair in state %s", state)
+	if err := a.beginCycle("repair"); err != nil {
+		return err
 	}
 
 	go a.runRepairCycle()
@@ -141,8 +193,9 @@ func (a *App) StartRepair() error {
 
 func (a *App) runCheckCycle() {
 	ctx, cancel := context.WithCancel(a.ctx)
-	a.cancelFn = cancel
+	a.setCancel(cancel)
 	defer cancel()
+	defer a.cycleActive.Store(false)
 
 	a.engine.SetState(engine.StateChecking)
 	a.setProgress("Checking for updates...", "", 0, 0, "")
@@ -176,15 +229,15 @@ func (a *App) runCheckCycle() {
 	}
 
 	if mismatchID, ok := engine.ValidateAgainstDisk(a.gamePath, localState, manifest); !ok {
-		a.needsRepair = true
-		a.repairFromID = mismatchID
+		a.setRepairNeeded(mismatchID)
 		a.engine.SetState(engine.StateReady)
 		a.setProgress(fmt.Sprintf("Patch %d corrupted — Repair needed", mismatchID), "", 100, 100, "")
 		log.Printf("[check] Mismatch at patch %d, repair needed", mismatchID)
 		return
 	}
 
-	running, _ := detector.IsGameRunning(a.config.ExeName)
+	cfg := a.configSnapshot()
+	running, _ := detector.IsGameRunning(cfg.ExeName)
 	if running {
 		a.handleError("ERR_GAME_RUNNING", "Game is running. Please close it first.", false)
 		return
@@ -199,8 +252,7 @@ func (a *App) runCheckCycle() {
 
 	engine.CleanupBackups(a.gamePath)
 
-	a.needsRepair = false
-	a.repairFromID = 0
+	a.clearRepair()
 	finalVersion := engine.LocalVersion(localState)
 	a.engine.SetState(engine.StateReady)
 
@@ -215,8 +267,9 @@ func (a *App) runCheckCycle() {
 
 func (a *App) runRepairCycle() {
 	ctx, cancel := context.WithCancel(a.ctx)
-	a.cancelFn = cancel
+	a.setCancel(cancel)
 	defer cancel()
+	defer a.cycleActive.Store(false)
 
 	a.engine.SetState(engine.StateChecking)
 	a.setProgress("Starting repair...", "", 0, 0, "")
@@ -227,7 +280,8 @@ func (a *App) runRepairCycle() {
 		return
 	}
 
-	running, _ := detector.IsGameRunning(a.config.ExeName)
+	cfg := a.configSnapshot()
+	running, _ := detector.IsGameRunning(cfg.ExeName)
 	if running {
 		a.handleError("ERR_GAME_RUNNING", "Game is running. Please close it first.", false)
 		return
@@ -239,7 +293,7 @@ func (a *App) runRepairCycle() {
 		return
 	}
 
-	mismatchID := a.repairFromID
+	_, mismatchID := a.repairInfo()
 	if mismatchID <= 0 {
 
 		mismatchID, _ = engine.ValidateAgainstDisk(a.gamePath, localState, manifest)
@@ -277,8 +331,7 @@ func (a *App) runRepairCycle() {
 
 	engine.CleanupBackups(a.gamePath)
 
-	a.needsRepair = false
-	a.repairFromID = 0
+	a.clearRepair()
 	finalVersion := engine.LocalVersion(localState)
 	a.engine.SetState(engine.StateReady)
 
@@ -287,7 +340,8 @@ func (a *App) runRepairCycle() {
 }
 
 func (a *App) fetchManifest(ctx context.Context) (*engine.Manifest, error) {
-	data, err := a.dl.FetchBytes(ctx, a.config.ManifestURL)
+	cfg := a.configSnapshot()
+	data, err := a.dl.FetchBytes(ctx, cfg.ManifestURL)
 	if err != nil {
 		return nil, fmt.Errorf("fetch manifest: %w", err)
 	}
@@ -297,7 +351,7 @@ func (a *App) fetchManifest(ctx context.Context) (*engine.Manifest, error) {
 		return nil, fmt.Errorf("parse manifest: %w", err)
 	}
 
-	if !engine.VerifyManifestSignature(manifest) {
+	if !engine.VerifyManifest(manifest, engine.ResolveManifestPublicKey(cfg.ManifestPublicKey)) {
 		return nil, fmt.Errorf("manifest signature is invalid")
 	}
 
@@ -337,6 +391,9 @@ func (a *App) applyPatches(ctx context.Context, manifest *engine.Manifest, queue
 		a.setProgress(fmt.Sprintf("Applying %s...", patch.Name), patch.Name, 100, 0, "")
 
 		if err := a.applyPatch(patch, patchPath, len(queue), totalApplied+1); err != nil {
+			if !cached {
+				os.Remove(patchPath)
+			}
 			a.handleError("ERR_PATCH", fmt.Sprintf("Failed to apply %s: %v", patch.Name, err), false)
 			return totalApplied, err
 		}
@@ -486,12 +543,13 @@ func (a *App) applyPatch(patch engine.Patch, patchPath string, totalPatches int,
 }
 
 func (a *App) LaunchGame() error {
-	running, _ := detector.IsGameRunning(a.config.ExeName)
+	cfg := a.configSnapshot()
+	running, _ := detector.IsGameRunning(cfg.ExeName)
 	if running {
 		return fmt.Errorf("game is already running")
 	}
 
-	exePath := filepath.Join(a.gamePath, a.config.ExeName)
+	exePath := filepath.Join(a.gamePath, cfg.ExeName)
 	return engine.LaunchGame(exePath, nil)
 }
 
@@ -504,33 +562,46 @@ func (a *App) GetLocalVersion() (int, error) {
 }
 
 func (a *App) GetManifestURL() string {
-	return a.config.ManifestURL
+	return a.configSnapshot().ManifestURL
 }
 
 func (a *App) SetManifestURL(url string) error {
+	a.mu.Lock()
 	a.config.ManifestURL = url
-	return engine.SaveConfig(a.gamePath, a.config)
+	err := engine.SaveConfig(a.gamePath, a.config)
+	a.mu.Unlock()
+	return err
 }
 
 func (a *App) GetExeName() string {
-	return a.config.ExeName
+	return a.configSnapshot().ExeName
 }
 
 func (a *App) SetExeName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("exe name must not be empty")
+	}
+	a.mu.Lock()
 	a.config.ExeName = name
-	return engine.SaveConfig(a.gamePath, a.config)
+	err := engine.SaveConfig(a.gamePath, a.config)
+	a.mu.Unlock()
+	return err
 }
 
 func (a *App) IsGameRunning() (bool, error) {
-	return detector.IsGameRunning(a.config.ExeName)
+	return detector.IsGameRunning(a.configSnapshot().ExeName)
 }
 
 func (a *App) GetNotes() ([]engine.RenderedNote, string, error) {
-	if a.config.NotesURL == "" {
+	cfg := a.configSnapshot()
+	if cfg.NotesURL == "" {
 		return nil, "", nil
 	}
 
-	data, err := a.dl.FetchBytes(a.ctx, a.config.NotesURL)
+	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
+	defer cancel()
+
+	data, err := a.dl.FetchBytes(ctx, cfg.NotesURL)
 	if err != nil {
 		log.Printf("[notes] Failed to fetch notes config: %v", err)
 		return nil, "", nil
@@ -545,7 +616,7 @@ func (a *App) GetNotes() ([]engine.RenderedNote, string, error) {
 	var notes []engine.RenderedNote
 	for _, entry := range manifest.Notes {
 		noteURL := manifest.NotesBaseURL + entry.Name
-		mdData, err := a.dl.FetchBytes(a.ctx, noteURL)
+		mdData, err := a.dl.FetchBytes(ctx, noteURL)
 		if err != nil {
 			log.Printf("[notes] Failed to fetch note %s: %v", entry.Name, err)
 			continue
@@ -562,7 +633,7 @@ func (a *App) GetNotes() ([]engine.RenderedNote, string, error) {
 
 	var css string
 	if manifest.NotesCSSURL != "" {
-		cssData, err := a.dl.FetchBytes(a.ctx, manifest.NotesCSSURL)
+		cssData, err := a.dl.FetchBytes(ctx, manifest.NotesCSSURL)
 		if err != nil {
 			log.Printf("[notes] Failed to fetch notes CSS: %v", err)
 		} else {
@@ -574,9 +645,7 @@ func (a *App) GetNotes() ([]engine.RenderedNote, string, error) {
 }
 
 func (a *App) CancelDownload() error {
-	if a.cancelFn != nil {
-		a.cancelFn()
-	}
+	a.cancelCurrent()
 	return nil
 }
 

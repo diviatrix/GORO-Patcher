@@ -121,6 +121,26 @@ func TestBuildQueueNil(t *testing.T) {
 	}
 }
 
+func TestBuildQueueRejectsNegativeAndDuplicates(t *testing.T) {
+	m := &Manifest{Patches: []Patch{
+		{ID: -1, Name: "neg.patch"},
+		{ID: 10, Name: "a.patch"},
+		{ID: 10, Name: "b.patch"},
+		{ID: 11, Name: "c.patch"},
+	}}
+
+	queue := BuildQueue(m, 0)
+	want := []int{10, 11}
+	if len(queue) != len(want) {
+		t.Fatalf("got %d patches, want %d", len(queue), len(want))
+	}
+	for i := range want {
+		if queue[i].ID != want[i] {
+			t.Errorf("queue[%d].ID = %d, want %d", i, queue[i].ID, want[i])
+		}
+	}
+}
+
 func TestNeedsSelfUpdate(t *testing.T) {
 	if NeedsSelfUpdate(nil) {
 		t.Error("expected false for nil")

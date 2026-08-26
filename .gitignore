@@ -33,3 +33,6 @@ opencode.json
 
 # Prototype
 proto/*
+
+# Local test signing keys (never commit the private key)
+.testkeys/

@@ -33,10 +33,21 @@ func New(dl *downloader.Downloader) (*Updater, error) {
 }
 
 func (u *Updater) Update(ctx context.Context, url, expectedHash string) (bool, error) {
-	tmpPath := u.currentPath + ".new"
+	f, err := os.CreateTemp(filepath.Dir(u.currentPath), filepath.Base(u.currentPath)+".update-*")
+	if err != nil {
+		return false, fmt.Errorf("create update temp: %w", err)
+	}
+	tmpPath := f.Name()
+	f.Close()
+
 	if err := u.dl.Fetch(ctx, url, tmpPath, nil); err != nil {
 		os.Remove(tmpPath)
 		return false, fmt.Errorf("download update: %w", err)
+	}
+
+	if err := syncFile(tmpPath); err != nil {
+		os.Remove(tmpPath)
+		return false, fmt.Errorf("sync update: %w", err)
 	}
 
 	if err := downloader.VerifyFile(tmpPath, expectedHash); err != nil {
@@ -50,6 +61,15 @@ func (u *Updater) Update(ctx context.Context, url, expectedHash string) (bool, e
 	}
 
 	return true, nil
+}
+
+func syncFile(path string) error {
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return f.Sync()
 }
 
 func (u *Updater) replaceBinary(newPath string) error {

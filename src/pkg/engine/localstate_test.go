@@ -369,3 +369,44 @@ func TestFindPatchByID(t *testing.T) {
 		t.Errorf("expected c.grf, got %v", p)
 	}
 }
+
+func TestValidateAgainstDiskReturnsMinCorruptID(t *testing.T) {
+	dir := t.TempDir()
+	state := &LocalState{AppliedPatches: []LocalPatch{{ID: 5, Name: "p5.zip"}, {ID: 9, Name: "p9.zip"}}}
+	manifest := &Manifest{Patches: []Patch{
+		{ID: 5, Type: "raw", FileHashes: map[string]string{"a.txt": "aaaa0000"}},
+		{ID: 9, Type: "raw", FileHashes: map[string]string{"b.txt": "bbbb0000"}},
+	}}
+
+	id, ok := ValidateAgainstDisk(dir, state, manifest)
+	if ok {
+		t.Fatal("expected corruption to be detected")
+	}
+	if id != 5 {
+		t.Errorf("expected min corrupt id 5, got %d", id)
+	}
+}
+
+func TestValidateAgainstDiskNilManifest(t *testing.T) {
+	dir := t.TempDir()
+	state := &LocalState{AppliedPatches: []LocalPatch{{ID: 5, Name: "p5.zip"}}}
+
+	id, ok := ValidateAgainstDisk(dir, state, nil)
+	if !ok {
+		t.Errorf("expected ok for nil manifest, got mismatch at id %d", id)
+	}
+}
+
+func TestValidateAgainstDiskGRFMutableSkipped(t *testing.T) {
+	dir := t.TempDir()
+	writeGRF(t, dir, "myserver.grf", map[string]string{"data/items.lub": "real"})
+
+	state := &LocalState{AppliedPatches: []LocalPatch{{ID: 3, Name: "p3.grf"}}}
+	files := map[string]string{"data/items.lub": "abcd1234"}
+	manifest := &Manifest{Patches: []Patch{{ID: 3, Type: "grf", Target: "myserver.grf", FileHashes: files, Mutable: []string{"data/items.lub"}}}}
+
+	id, ok := ValidateAgainstDisk(dir, state, manifest)
+	if !ok {
+		t.Errorf("expected mutable grf entry to be skipped, got mismatch at id %d", id)
+	}
+}

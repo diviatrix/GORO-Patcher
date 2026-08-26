@@ -2,8 +2,6 @@
 
 package engine
 
-const manifestPublicKeyBase64 = ""
-
-func VerifyManifestSignature(m *Manifest) bool {
-	return VerifyManifestSignatureWithKey(m, manifestPublicKeyBase64)
+func MissingKeyAllowsUnsigned() bool {
+	return false
 }

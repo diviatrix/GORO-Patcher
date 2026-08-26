@@ -9,9 +9,10 @@ import (
 const configFileName = "goro-config.json"
 
 type Config struct {
-	ManifestURL string `json:"manifest_url"`
-	ExeName     string `json:"exe_name"`
-	NotesURL    string `json:"notes_url,omitempty"`
+	ManifestURL       string `json:"manifest_url"`
+	ExeName           string `json:"exe_name"`
+	NotesURL          string `json:"notes_url,omitempty"`
+	ManifestPublicKey string `json:"manifest_public_key,omitempty"`
 }
 
 func DefaultConfig() *Config {
@@ -39,10 +40,9 @@ func LoadConfig(dir string) (*Config, error) {
 }
 
 func SaveConfig(dir string, cfg *Config) error {
-	path := filepath.Join(dir, configFileName)
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return atomicWriteFile(filepath.Join(dir, configFileName), data)
 }

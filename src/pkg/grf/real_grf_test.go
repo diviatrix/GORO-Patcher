@@ -8,7 +8,7 @@ import (
 
 func TestRealGRFPatch(t *testing.T) {
 
-	grfPath := "../../example/data/patch_0.grf"
+	grfPath := "../../../example/data/patch_0.grf"
 	if _, err := os.Stat(grfPath); os.IsNotExist(err) {
 		t.Skip("patch_0.grf not found")
 	}
@@ -24,12 +24,9 @@ func TestRealGRFPatch(t *testing.T) {
 	t.Logf("Files: %v", g.ListFiles())
 
 	files := g.ListFiles()
-	if len(files) > 0 {
-		content, err := g.ReadFile(files[0])
-		if err != nil {
-			t.Logf("Warning: could not read %s: %v", files[0], err)
-		} else {
-			t.Logf("Read %s: %d bytes", files[0], len(content))
+	for _, name := range files {
+		if _, err := g.ReadFile(name); err != nil {
+			t.Fatalf("could not read %s from real GRF: %v", name, err)
 		}
 	}
 
@@ -79,7 +76,7 @@ func TestRealGRFPatch(t *testing.T) {
 
 func TestRealGRFMerge(t *testing.T) {
 
-	grfPath := "../../example/data/patch_0.grf"
+	grfPath := "../../../example/data/patch_0.grf"
 	if _, err := os.Stat(grfPath); os.IsNotExist(err) {
 		t.Skip("patch_0.grf not found")
 	}

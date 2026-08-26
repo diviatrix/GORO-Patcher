@@ -40,3 +40,23 @@ func TestIsGameRunningNonexistent(t *testing.T) {
 		t.Error("expected false for nonexistent process")
 	}
 }
+
+func TestIsGameRunningEmptyName(t *testing.T) {
+	running, err := IsGameRunning("")
+	if err != nil {
+		t.Skipf("detection not available: %v", err)
+	}
+	if running {
+		t.Error("empty exe name must not report a running game")
+	}
+}
+
+func TestIsGameRunningWhitespaceName(t *testing.T) {
+	running, err := IsGameRunning("   ")
+	if err != nil {
+		t.Skipf("detection not available: %v", err)
+	}
+	if running {
+		t.Error("whitespace exe name must not report a running game")
+	}
+}

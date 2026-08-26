@@ -38,11 +38,17 @@ func BuildQueue(m *Manifest, localVersion int) []Patch {
 		return nil
 	}
 
+	seen := make(map[int]struct{}, len(m.Patches))
 	var queue []Patch
 	for _, p := range m.Patches {
-		if p.ID > localVersion {
-			queue = append(queue, p)
+		if p.ID < 0 || p.ID <= localVersion {
+			continue
 		}
+		if _, dup := seen[p.ID]; dup {
+			continue
+		}
+		seen[p.ID] = struct{}{}
+		queue = append(queue, p)
 	}
 
 	sort.Slice(queue, func(i, j int) bool {

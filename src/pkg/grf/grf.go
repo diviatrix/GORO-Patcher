@@ -22,6 +22,7 @@ type GRF struct {
 	filePath    string
 	file        *os.File
 	dataOffset  int64
+	fileSize    int64
 }
 
 func Open(path string) (*GRF, error) {
@@ -29,6 +30,13 @@ func Open(path string) (*GRF, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, fmt.Errorf("stat: %w", err)
+	}
+	fileSize := fi.Size()
 
 	var headerBuf [grfHeaderSize]byte
 	if _, err := io.ReadFull(f, headerBuf[:]); err != nil {
@@ -42,6 +50,10 @@ func Open(path string) (*GRF, error) {
 	}
 
 	fileCount := int(binary.LittleEndian.Uint32(headerBuf[0x26:0x2A])) - 7
+	if fileCount < 0 {
+		f.Close()
+		return nil, fmt.Errorf("invalid GRF file count")
+	}
 
 	ftSeekOffset := binary.LittleEndian.Uint32(headerBuf[0x1E:0x22])
 	if _, err := f.Seek(int64(ftSeekOffset), io.SeekCurrent); err != nil {
@@ -58,10 +70,20 @@ func Open(path string) (*GRF, error) {
 	compressedSize := binary.LittleEndian.Uint32(ftHeader[0:4])
 	uncompressedSize := binary.LittleEndian.Uint32(ftHeader[4:8])
 
-	compressed := make([]byte, compressedSize)
-	if _, err := io.ReadFull(f, compressed); err != nil {
+	pos, _ := f.Seek(0, io.SeekCurrent)
+	if int64(compressedSize)+pos > fileSize {
+		f.Close()
+		return nil, fmt.Errorf("file table size exceeds file")
+	}
+
+	compressed, err := io.ReadAll(io.LimitReader(f, int64(compressedSize)))
+	if err != nil {
 		f.Close()
 		return nil, fmt.Errorf("read compressed file table: %w", err)
+	}
+	if len(compressed) != int(compressedSize) {
+		f.Close()
+		return nil, fmt.Errorf("file table truncated: got %d, want %d", len(compressed), compressedSize)
 	}
 
 	zr, err := zlib.NewReader(bytes.NewReader(compressed))
@@ -71,7 +93,7 @@ func Open(path string) (*GRF, error) {
 	}
 	defer zr.Close()
 
-	decompressed, err := io.ReadAll(zr)
+	decompressed, err := io.ReadAll(io.LimitReader(zr, int64(uncompressedSize)+1))
 	if err != nil {
 		f.Close()
 		return nil, fmt.Errorf("decompress file table: %w", err)
@@ -100,6 +122,7 @@ func Open(path string) (*GRF, error) {
 		filePath:   path,
 		file:       f,
 		dataOffset: dataOffset,
+		fileSize:   fileSize,
 	}, nil
 }
 
@@ -188,9 +211,23 @@ func (g *GRF) ReadFile(name string) ([]byte, error) {
 	}
 
 	dataPos := g.dataOffset + int64(entry.Offset)
+	if int64(entry.CompressedSize)+dataPos > g.fileSize {
+		return nil, fmt.Errorf("entry %s extends past end of file", name)
+	}
 
 	if _, err := g.file.Seek(dataPos, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("seek to data: %w", err)
+	}
+
+	if entry.Flags&0x01 == 0 {
+		data, err := io.ReadAll(io.LimitReader(g.file, int64(entry.CompressedSize)))
+		if err != nil {
+			return nil, fmt.Errorf("read stored data: %w", err)
+		}
+		if len(data) != int(entry.CompressedSize) {
+			return nil, fmt.Errorf("stored data truncated: got %d, want %d", len(data), entry.CompressedSize)
+		}
+		return data, nil
 	}
 
 	compressed := make([]byte, entry.CompressedSize)
@@ -208,9 +245,12 @@ func (g *GRF) ReadFile(name string) ([]byte, error) {
 	}
 	defer zr.Close()
 
-	decompressed, err := io.ReadAll(zr)
+	decompressed, err := io.ReadAll(io.LimitReader(zr, int64(entry.UncompressedSize)+1))
 	if err != nil {
 		return nil, fmt.Errorf("decompress: %w", err)
+	}
+	if len(decompressed) > int(entry.UncompressedSize) {
+		return nil, fmt.Errorf("decompressed data exceeds declared size")
 	}
 
 	return decompressed, nil
@@ -343,9 +383,24 @@ func (g *GRF) SaveAs(dest string) error {
 	fileTableData := buildFileTable(allEntries)
 	compressedFT := compressZlibData(fileTableData)
 
-	binary.Write(f, binary.LittleEndian, uint32(len(compressedFT)))
-	binary.Write(f, binary.LittleEndian, uint32(len(fileTableData)))
-	f.Write(compressedFT)
+	if err := binary.Write(f, binary.LittleEndian, uint32(len(compressedFT))); err != nil {
+		return err
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint32(len(fileTableData))); err != nil {
+		return err
+	}
+	if _, err := f.Write(compressedFT); err != nil {
+		return err
+	}
+
+	for i := range defs {
+		if e, ok := g.entries[defs[i].meta.FileName]; ok {
+			e.Offset = defs[i].meta.Offset
+			e.CompressedSize = defs[i].meta.CompressedSize
+			e.CompressedSizeAligned = defs[i].meta.CompressedSizeAligned
+		}
+	}
+	g.pendingData = nil
 
 	return nil
 }

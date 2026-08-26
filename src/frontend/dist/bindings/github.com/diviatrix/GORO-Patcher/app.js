@@ -9,9 +9,6 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as engine$0 from "./pkg/engine/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as application$0 from "../../wailsapp/wails/v3/pkg/application/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -22,22 +19,6 @@ import * as $models from "./models.js";
  */
 export function CancelDownload() {
     return $Call.ByID(2532515671);
-}
-
-/**
- * @param {engine$0.ErrorEvent} evt
- * @returns {$CancellablePromise<void>}
- */
-export function EmitError(evt) {
-    return $Call.ByID(552483796, evt);
-}
-
-/**
- * @param {engine$0.ProgressEvent} evt
- * @returns {$CancellablePromise<void>}
- */
-export function EmitProgress(evt) {
-    return $Call.ByID(421167885, evt);
 }
 
 /**
@@ -108,14 +89,6 @@ export function LaunchGame() {
  */
 export function NeedsRepair() {
     return $Call.ByID(698934495);
-}
-
-/**
- * @param {application$0.App | null} app
- * @returns {$CancellablePromise<void>}
- */
-export function SetApp(app) {
-    return $Call.ByID(4256893662, app);
 }
 
 /**

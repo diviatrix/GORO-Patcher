@@ -2,16 +2,15 @@ package main
 
 import (
 	"crypto/ed25519"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"flag"
 	"fmt"
 	"os"
 
+	"github.com/diviatrix/GORO-Patcher/pkg/downloader"
 	"github.com/diviatrix/GORO-Patcher/pkg/engine"
 )
 
@@ -65,8 +64,8 @@ Commands:
       -in plist.json          Manifest to verify [default: plist.json]
 
 The private key is the publisher's secret — keep it off-repo and never ship it.
-genkey also prints the base64 public key to paste into
-pkg/engine/manifest_verify_release.go for release builds.
+genkey also prints the base64 public key: set it as the manifest_public_key field in
+goro-config.json, or via the GORO_PATCHER_PUBKEY environment variable.
 `)
 }
 
@@ -86,12 +85,15 @@ func hashFilesSHA256(paths []string) {
 }
 
 func sha256File(path string) (sum string, size int64, err error) {
-	data, err := os.ReadFile(path)
+	sum, err = downloader.HashFile(path)
 	if err != nil {
 		return "", 0, err
 	}
-	h := sha256.Sum256(data)
-	return hex.EncodeToString(h[:]), int64(len(data)), nil
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", 0, err
+	}
+	return sum, info.Size(), nil
 }
 
 func genkey(args []string) {
