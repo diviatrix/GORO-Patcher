@@ -282,11 +282,11 @@ func createTestZip(t *testing.T, files map[string]string) string {
 }
 
 type grfEntrySpec struct {
-	name            string
-	data            []byte
+	name             string
+	data             []byte
 	uncompressedSize uint32
-	flags           byte
-	alignPad        uint32
+	flags            byte
+	alignPad         uint32
 }
 
 func buildGRFFromEntries(t *testing.T, headerCountMinus7 uint32, entries []grfEntrySpec) []byte {
@@ -385,10 +385,10 @@ func TestOpenRejectsFileTableBomb(t *testing.T) {
 func TestReadFileRejectsDecompressionBomb(t *testing.T) {
 	bomb := compressZlib(t, bytes.Repeat([]byte{0}, 1<<16))
 	entries := []grfEntrySpec{{
-		name:            "bomb.txt",
-		data:            bomb,
+		name:             "bomb.txt",
+		data:             bomb,
 		uncompressedSize: 16,
-		flags:           1,
+		flags:            1,
 	}}
 
 	grfData := buildGRFFromEntries(t, uint32(1)+7, entries)
@@ -409,11 +409,11 @@ func TestReadFilePaddedAlignedSize(t *testing.T) {
 	content := []byte("payload whose aligned size carries padding")
 	compressed := compressZlib(t, content)
 	entries := []grfEntrySpec{{
-		name:            "padded.bin",
-		data:            compressed,
+		name:             "padded.bin",
+		data:             compressed,
 		uncompressedSize: uint32(len(content)),
-		flags:           1,
-		alignPad:        12,
+		flags:            1,
+		alignPad:         12,
 	}}
 
 	grfData := buildGRFFromEntries(t, uint32(1)+7, entries)
@@ -437,10 +437,10 @@ func TestReadFilePaddedAlignedSize(t *testing.T) {
 func TestReadFileStoredEntry(t *testing.T) {
 	raw := []byte("stored raw bytes, not compressed")
 	entries := []grfEntrySpec{{
-		name:            "raw.bin",
-		data:            raw,
+		name:             "raw.bin",
+		data:             raw,
 		uncompressedSize: uint32(len(raw)),
-		flags:           0,
+		flags:            0,
 	}}
 
 	grfData := buildGRFFromEntries(t, uint32(1)+7, entries)

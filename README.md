@@ -1,5 +1,9 @@
 # GORO-Patcher
 
+[![CI](https://github.com/diviatrix/GORO-Patcher/actions/workflows/ci.yml/badge.svg)](https://github.com/diviatrix/GORO-Patcher/actions/workflows/ci.yml)
+![Go](https://img.shields.io/badge/Go-1.25-blue)
+![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
+
 Cross-platform Ragnarok Online patcher. Merges GRF files and extracts raw patches.
 
 Project page: https://goro.1337.plus/
@@ -26,6 +30,14 @@ Project page: https://goro.1337.plus/
 2. Binaries output to `build/` — copy `build/` to your server
 3. Create `goro-config.json` (see [User Guide](doc/USER_GUIDE.md))
 4. Run
+
+## Testing
+
+Run the full verification suite (formatting, vet, dev test, race, release-gate test, and cross-builds) with one command — the same checks CI runs:
+
+```
+./scripts/test.sh
+```
 
 ## Documentation
 

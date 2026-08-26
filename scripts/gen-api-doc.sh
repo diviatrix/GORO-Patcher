@@ -83,7 +83,7 @@ Returned by `GetProgress()`. Updated every 100ms during patching.
 
 EOF
 
-grep -E '^export function ' "$APP_JS" | grep -v -E '(SetApp|EmitProgress|EmitError)' | while IFS= read -r line; do
+grep -E '^export function ' "$APP_JS" | while IFS= read -r line; do
     name=$(echo "$line" | sed 's/export function \([A-Za-z]*\).*/\1/')
     params=$(echo "$line" | sed 's/.*(\(.*\)) {.*/\1/' | xargs)
     returns=$(grep -B 20 "export function $name" "$APP_JS" | grep -oP '@returns \{\K[^}]+' | tail -1)
@@ -102,6 +102,7 @@ grep -E '^export function ' "$APP_JS" | grep -v -E '(SetApp|EmitProgress|EmitErr
         GetExeName)      desc="Returns the game executable name from config." ;;
         SetExeName)      desc="Set the game executable name and save to config." ;;
         IsGameRunning)   desc="Returns whether the game process is currently running." ;;
+        FullGRFCheck)    desc="Run a full integrity check over all GRF targets referenced by applied patches." ;;
         *)               desc="" ;;
     esac
 

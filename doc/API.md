@@ -70,6 +70,13 @@ Cancel the current download/patch operation.
 - **Parameters**: none
 - **Returns**: `void`
 
+### `FullGRFCheck()`
+
+Run a full integrity check over all GRF targets referenced by applied patches.
+
+- **Parameters**: none
+- **Returns**: `engine$0.GRFCheckReport`
+
 ### `GetExeName()`
 
 Returns the game executable name from config.

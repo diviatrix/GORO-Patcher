@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: src/go.mod
+
+      - name: gofmt check
+        run: |
+          unformatted=$(gofmt -l . | grep '\.go$' || true)
+          if [[ -n "$unformatted" ]]; then
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test (dev)
+        run: go test -count=1 ./...
+
+      - name: go test (race)
+        run: go test -count=1 -race ./...
+
+      - name: go test (release gate)
+        run: go test -count=1 -tags release ./...
+
+      - name: build linux (packages + tools)
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ./cmd/... ./pkg/...
+
+      - name: build windows (cross)
+        run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./cmd/... ./pkg/...

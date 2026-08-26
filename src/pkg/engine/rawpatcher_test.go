@@ -60,8 +60,8 @@ func TestPatchRawRejectsSymlinkEscape(t *testing.T) {
 func TestPatchRawLeavesNoTempFiles(t *testing.T) {
 	gameDir := t.TempDir()
 	zipPath := createRawTestZip(t, map[string]string{
-		"a.bin":       "one",
-		"sub/b.bin":   "two",
+		"a.bin":     "one",
+		"sub/b.bin": "two",
 	})
 
 	if err := PatchRaw(gameDir, zipPath); err != nil {

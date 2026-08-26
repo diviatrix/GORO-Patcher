@@ -39,9 +39,9 @@ func New(maxRetry int) *Downloader {
 
 	return &Downloader{
 		client: &http.Client{
-			Transport:       transport,
-			CheckRedirect:   checkRedirect,
-			Timeout:         0,
+			Transport:     transport,
+			CheckRedirect: checkRedirect,
+			Timeout:       0,
 		},
 		maxRetry: maxRetry,
 	}
