@@ -76,7 +76,11 @@ function esc(s) {
 
 function inlineMd(text, ref) {
   const htmlSlots = [];
-  let out = text.replace(/<[^>]+>/g, m => {
+  let out = text.replace(/`([^`]+)`/g, (_, code) => {
+    htmlSlots.push('<code>' + esc(code) + '</code>');
+    return '\x00' + (htmlSlots.length - 1) + '\x00';
+  });
+  out = out.replace(/<[^>]+>/g, m => {
     let fixed = m;
     fixed = fixed.replace(/(src|href)="([^"]+)"/i, (_, attr, val) => attr + '="' + ghUrl(val, ref) + '"');
     htmlSlots.push(fixed);
@@ -86,7 +90,6 @@ function inlineMd(text, ref) {
   out = out.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => '<img src="' + ghUrl(url, ref) + '" alt="' + alt + '" class="release-img">');
   out = out.replace(/\[(!<img[^>]*>)\]\(([^)]+)\)/g, (_, img, url) => '<a href="' + ghUrl(url, ref) + '" target="_blank" rel="noopener">' + img + '</a>');
   out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => '<a href="' + ghUrl(url, ref) + '" target="_blank" rel="noopener">' + text + '</a>');
   out = out.replace(/\x00(\d+)\x00/g, (_, i) => htmlSlots[i]);
   return out;
