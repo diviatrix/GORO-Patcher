@@ -31,6 +31,12 @@ Project page: https://goro.1337.plus/
 3. Create `goro-config.json` (see [User Guide](doc/USER_GUIDE.md))
 4. Run
 
+For a **production server**, build a per-server release binary
+(`./scripts/build.sh --release`), generate an Ed25519 keypair (`hashfile
+genkey`), put its public key in `goro-config.json`, and sign `plist.json`
+(`hashfile sign`) before hosting over HTTPS — see the [User Guide](doc/USER_GUIDE.md)
+and [Build Guide](doc/BUILD.md).
+
 ## Testing
 
 Run the full verification suite (formatting, vet, dev test, race, release-gate test, and cross-builds) with one command — the same checks CI runs:

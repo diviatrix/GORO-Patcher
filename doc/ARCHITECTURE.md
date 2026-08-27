@@ -162,13 +162,20 @@ sharpest edge of manifest-content trust. It is protected by four layered gates:
    the trust root and is now authenticated. `engine.SignManifest` (called by the
    publisher's `hashfile sign`) computes an **Ed25519** signature over a canonical
    form of the manifest — the struct re-marshalled with the `signature` field
-   cleared. `engine.VerifyManifestSignature` re-derives that same canonical form
-   and checks it against the public key embedded in `manifest_verify_release.go`.
+   cleared. `engine.VerifyManifestSignatureWithKey` re-derives that same
+   canonical form and checks it against a public key, and `engine.VerifyManifest`
+   (used by `App.fetchManifest`) resolves that key at runtime via
+   `engine.ResolveManifestPublicKey` — from `manifest_public_key` in
+   `goro-config.json`, or the `GORO_PATCHER_PUBKEY` environment variable.
    Verification runs in `App.fetchManifest` before any field is trusted, so a
    tampered manifest can no longer influence `PatcherHash`, `PatcherURL`, or any
    patch. Because signer and verifier share the same Go canonicalization code,
-   there is no cross-language skew. The private key lives only with the publisher
-   and is never embedded — its loss is the operator's risk, not the patcher's.
+   there is no cross-language skew. The public key is **not** compiled into the
+   binary; in dev builds (`!release`) an absent key allows unsigned manifests
+   (`MissingKeyAllowsUnsigned` → true), while release builds fail closed
+   (`MissingKeyAllowsUnsigned` → false). The private key lives only with the
+   publisher and is never embedded — its loss is the operator's risk, not the
+   patcher's.
 2. **Release-only HTTPS transport.** `downloader.validateURL` gates every fetch
    (manifest, patches, patcher binary, notes). Dev builds (`//go:build !release`)
    allow `http://`, `https://`, `file://` and local paths for testing; release

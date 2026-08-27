@@ -29,28 +29,42 @@ usage() {
     cat <<EOF
 Usage: $0 [OPTIONS] [TARGET...]
 
-Build GORO-Patcher.
+Build GORO-Patcher (desktop GUI) and the hashfile signing/hashing tool.
 
 Targets:
-  linux       Build Linux binary
-  windows     Build Windows binary (.exe)
+  linux       Build Linux binaries
+  windows     Build Windows binaries (.exe)
   all         Build both (default: current platform only)
 
 Options:
   -c, --clean     Clean build artifacts before building
-  -f, --frontend  Regenerate frontend bindings
-  -r, --release   Build a signed release (release build tag)
+  -f, --frontend  Regenerate TypeScript bindings + API docs
+  -r, --release   Add the \`release\` build tag
   -h, --help      Show this help
 
 Release notes:
-  -r adds the `release` build tag, which enforces HTTPS-only fetching and
-  requires a valid Ed25519 signature on the manifest. Set the publisher public
-  key in src/pkg/engine/manifest_verify_release.go (via `hashfile genkey`)
-  before a release build.
+  -r selects the hardened \`release\` build tag, enforced at compile time: the
+  patcher allows ONLY \`https://\` for fetched content and REQUIRES a valid
+  Ed25519 signature on the manifest. Configure the publisher public key at
+  runtime via \`manifest_public_key\` in goro-config.json or the
+  \`GORO_PATCHER_PUBKEY\` environment variable. Builds without -r (dev) accept
+  \`http://\`/`file://\` and skip signature checks, for local testing.
 
-Platform notes:
-  Linux:  Can build linux (native) and windows (cross-compile via wails3)
-  Windows: Can build windows (native). Linux build not supported.
+  The windows .exe is built with an embedded icon/manifest via a generated
+  .syso; hashfile is a pure-Go tool built for the same platform.
+
+Output:
+  Each target writes the canonical files to build/:
+    GORO-Patcher (or .exe)  and  hashfile (or .exe)
+  plus goro-config.json.example and public/plist.json.example.
+
+Example (all four channels, saved under build/dist):
+  ./scripts/build.sh linux        && mv build/GORO-Patcher build/dist/GORO-Patcher-linux-dev
+  ./scripts/build.sh linux -r     && mv build/GORO-Patcher build/dist/GORO-Patcher-linux-release
+  ./scripts/build.sh windows      && mv build/GORO-Patcher.exe build/dist/GORO-Patcher-windows-dev.exe
+  ./scripts/build.sh windows -r   && mv build/GORO-Patcher.exe build/dist/GORO-Patcher-windows-release.exe
+  cp build/hashfile build/dist/hashfile-linux
+  cp build/hashfile.exe build/dist/hashfile-windows.exe
 EOF
 }
 
@@ -82,98 +96,75 @@ resolve_targets() {
     local resolved=()
     for t in "${TARGETS[@]}"; do
         case $t in
-            all)
-                resolved+=(linux windows)
-                ;;
+            all) resolved+=(linux windows) ;;
             linux)
                 if [[ "$HOST_OS" != "linux" ]]; then
                     err "Linux build only supported on Linux"
                 fi
                 resolved+=(linux)
                 ;;
-            windows)
-                resolved+=(windows)
-                ;;
+            windows) resolved+=(windows) ;;
         esac
     done
     printf '%s\n' "${resolved[@]}" | sort -u
 }
 
-find_wails() {
-    if command -v wails3 &>/dev/null; then
-        echo "wails3"
-    elif [[ -x "$HOME/go/bin/wails3" ]]; then
-        echo "$HOME/go/bin/wails3"
-    elif [[ -x "/c/Users/$USER/go/bin/wails3.exe" ]]; then
-        echo "/c/Users/$USER/go/bin/wails3.exe"
-    else
-        err "wails3 not found. Install: go install github.com/wailsapp/wails/v3/cmd/wails3@latest"
-    fi
-}
-
-check_deps() {
-    local target=$1
-    command -v go &>/dev/null || err "Go not found. Install from https://go.dev/dl/"
-
-    case $target in
-        linux)
-            if [[ "$HOST_OS" == "linux" ]]; then
-                command -v gcc &>/dev/null || err "GCC not found. Install build-essential / base-devel"
-            fi
-            ;;
-        windows)
-            ;;
-    esac
-}
-
-clean() {
-    log "Cleaning build artifacts..."
-    rm -rf "$SRC_DIR/build/bin" "$SRC_DIR/frontend/wailsjs" "$SRC_DIR/build"
-    rm -f "$OUT_DIR/GORO-Patcher" "$OUT_DIR/GORO-Patcher.exe"
-    rm -f "$OUT_DIR/hashfile" "$OUT_DIR/hashfile.exe"
+build_tags() {
+    # Mirrors the desktop build: production-optimized (trimpath, stripped).
+    # The `release` tag is added for the hardened channel.
+    local tags="production"
+    $RELEASE && tags="production,release"
+    echo "$tags"
 }
 
 generate_bindings() {
     log "Generating TypeScript bindings..."
-    cd "$SRC_DIR" && $(find_wails) generate bindings -b -d frontend/dist/bindings
+    cd "$SRC_DIR" && wails3 generate bindings -b -d frontend/dist/bindings
     log "Generating API docs..."
     "$SCRIPT_DIR/gen-api-doc.sh"
+}
+
+generate_syso() {
+    log "Generating Windows .syso (icon/manifest)..."
+    rm -f "$SRC_DIR/wails_windows_amd64.syso"
+    ( cd "$SRC_DIR/windows" && wails3 generate syso -arch amd64 -icon icon.ico -manifest wails.exe.manifest -info info.json -out ../wails_windows_amd64.syso )
+}
+
+clean() {
+    log "Cleaning build artifacts..."
+    rm -f "$OUT_DIR/GORO-Patcher" "$OUT_DIR/GORO-Patcher.exe"
+    rm -f "$OUT_DIR/hashfile" "$OUT_DIR/hashfile.exe"
+    rm -f "$SRC_DIR/wails_windows_amd64.syso"
+    rm -rf "$SRC_DIR/frontend/wailsjs"
 }
 
 build_linux() {
     log "Building for Linux... ($([ "$RELEASE" = true ] && echo release || echo dev))"
     cd "$SRC_DIR"
-    local wails=$(find_wails)
 
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-        go build -o "$OUT_DIR/hashfile" ./cmd/hashfile
+        go build -trimpath -buildvcs=false -ldflags="-w -s" \
+        -o "$OUT_DIR/hashfile" ./cmd/hashfile
 
-    local extra_tags=""
-    $RELEASE && extra_tags="EXTRA_TAGS=release"
-
-    $wails task linux:build GOOS=linux $extra_tags
-
-    cp "$SRC_DIR/build/bin/GORO-Patcher" "$OUT_DIR/GORO-Patcher"
-    rm -rf "$SRC_DIR/build"
+    CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
+        go build -tags "$(build_tags)" -trimpath -buildvcs=false -ldflags="-w -s" \
+        -o "$OUT_DIR/GORO-Patcher" .
 
     log "Linux: $OUT_DIR/GORO-Patcher, $OUT_DIR/hashfile"
 }
 
 build_windows() {
     log "Building for Windows... ($([ "$RELEASE" = true ] && echo release || echo dev))"
+    generate_syso
     cd "$SRC_DIR"
-    local wails=$(find_wails)
 
     CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-        go build -o "$OUT_DIR/hashfile.exe" ./cmd/hashfile
+        go build -trimpath -buildvcs=false -ldflags="-w -s" \
+        -o "$OUT_DIR/hashfile.exe" ./cmd/hashfile
 
-    local extra_tags=""
-    $RELEASE && extra_tags="EXTRA_TAGS=release"
-
-    $wails task windows:build GOOS=windows $extra_tags
-
-    cp "$SRC_DIR/build/bin/GORO-Patcher.exe" "$OUT_DIR/GORO-Patcher.exe"
-    rm -rf "$SRC_DIR/build"
+    CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+        go build -tags "$(build_tags)" -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui" \
+        -o "$OUT_DIR/GORO-Patcher.exe" .
 
     log "Windows: $OUT_DIR/GORO-Patcher.exe, $OUT_DIR/hashfile.exe"
 }
@@ -191,7 +182,6 @@ $CLEAN && clean
 $REGENERATE && generate_bindings
 
 for target in $(resolve_targets); do
-    check_deps "$target"
     case $target in
         linux) build_linux ;;
         windows) build_windows ;;

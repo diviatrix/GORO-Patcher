@@ -20,7 +20,7 @@ plist.json address for patcher itself is specified in `goro-config.json`.
     {
       "id": 2,
       "name": "patch_1.zip",
-      "hash": "ca7c90486d2f7a42",
+      "hash": "GENERATED_SHA256_64_HEX",
       "size": 542,
       "type": "raw",
       "target": "System/itemInfo.lub"
@@ -45,7 +45,9 @@ plist.json address for patcher itself is specified in `goro-config.json`.
 
 ### Version = Patch ID
 
-Both `manifest_url` (in `goro-config.json`) and `patch_base_url` support `file://`, `http://`, and `https://` protocols.
+Both `manifest_url` (in `goro-config.json`) and `patch_base_url` support `file://`,
+`http://`, and `https://` protocols **in dev builds**. Release builds restrict
+every fetched URL to `https://` only.
 
 There is no separate `version` field. The latest version is the highest `id` in the patches array.
 
@@ -55,6 +57,31 @@ There is no separate `version` field. The latest version is the highest `id` in 
 
 Only patches with `id > local_version` are applied.
 
+### Manifest Signing (Ed25519)
+
+The manifest is the trust root for every download (patches and the patcher's own
+updates), so release builds require it to be signed by the publisher. The
+publisher adds a base64 **Ed25519 signature** over a canonical form of the JSON
+(plain `json.Marshal` with the `signature` field cleared). The patcher verifies
+that signature against a public key supplied at runtime — `manifest_public_key`
+in `goro-config.json` or the `GORO_PATCHER_PUBKEY` environment variable.
+Signer and verifier share the same Go canonicalization code.
+
+| Field | Description |
+|-------|-------------|
+| `signature` | Base64 Ed25519 signature of the manifest (canonical form with `signature` empty). Absent/empty = unsigned. |
+
+Signing tools in `hashfile`:
+
+```
+hashfile genkey -out key.pem -pub pub.pem        # one-time keypair; prints base64 public key
+hashfile sign -key key.pem -in plist.json        # signs, rewriting plist.json in place
+hashfile verify -key pub.pem -in plist.json      # prints "signature OK" / fails
+```
+
+In a **dev** build the signature is optional (unsigned manifests are accepted);
+in a **release** build an unsigned or tampered manifest is rejected.
+
 ## Local State (goro-patch.json)
 
 The patcher tracks applied patches in `goro-patch.json` (next to the patcher binary). This file stores metadata for each applied patch, enabling integrity validation against the manifest.
@@ -62,8 +89,8 @@ The patcher tracks applied patches in `goro-patch.json` (next to the patcher bin
 ```json
 {
   "applied_patches": [
-    { "id": 0, "name": "patch_0.grf", "hash": "a2ac70ab8dff9e89", "size": 2043 },
-    { "id": 1, "name": "patch_1.zip", "hash": "45694d77d7281b59", "size": 539 }
+    { "id": 0, "name": "patch_0.grf", "hash": "GENERATED_SHA256_64_HEX", "size": 2043 },
+    { "id": 1, "name": "patch_1.zip", "hash": "GENERATED_SHA256_64_HEX", "size": 539 }
   ]
 }
 ```
@@ -220,8 +247,8 @@ Standard CommonMark: headings, bold, italic, links, lists, code blocks, blockquo
 ## Example: Adding a New Patch
 
 1. Create the patch file (GRF or zip)
-2. Generate hash: `downloader.HashFile("patch.grf")`
-3. Get file size: `stat -c%s patch.grf`
-4. Add entry to `plist.json` with next sequential `id`
+2. Generate hash + size: `hashfile patch.grf`
+3. Add entry to `plist.json` with next sequential `id`
+4. Re-sign the manifest: `hashfile sign -key key.pem -in plist.json`
 5. Upload patch file to `patch_base_url`
-6. Upload updated `plist.json` to manifest URL
+6. Upload the signed `plist.json` to the manifest URL

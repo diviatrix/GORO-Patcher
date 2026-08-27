@@ -112,7 +112,8 @@ func genkey(args []string) {
 
 	pubB64 := base64.StdEncoding.EncodeToString(pub)
 	fmt.Printf("wrote %s (private) and %s (public)\n", *keyOut, *pubOut)
-	fmt.Println("release public key (paste into pkg/engine/manifest_verify_release.go):")
+	fmt.Println("release public key (set as manifest_public_key in goro-config.json,")
+	fmt.Println("or via the GORO_PATCHER_PUBKEY environment variable):")
 	fmt.Println(pubB64)
 }
 

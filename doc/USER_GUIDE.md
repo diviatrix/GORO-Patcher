@@ -4,9 +4,12 @@ Guide for RO server administrators setting up GORO-Patcher for their players.
 
 ## What You Need
 
-- A web server (or CDN) to host patch files
+- A web server (or CDN) to host patch files over **HTTPS**
 - Your game client files (GRF, executable)
-- GORO-Patcher binary (download or [build](BUILD.md))
+- A GORO-Patcher **release binary that you build yourself** for your server —
+  there is no generic pre-built release binary (see [BUILD.md](BUILD.md))
+- The `hashfile` tool (built alongside the patcher) to hash, **sign**, and
+  verify your manifest
 
 ## Step 1: Set Up Your Patch Server
 
@@ -122,6 +125,25 @@ Copy the hash and size into your manifest.
 
 The `target` field is the file that gets patched. Use whatever GRF name your server uses (e.g. `myserver.grf`, `custom.grf`, etc.). The patcher creates it if it doesn't exist.
 
+### Sign the manifest
+
+A **release** patcher refuses an unsigned or tampered manifest, so you must
+sign yours before uploading. This requires the keypair matching the public key
+you configure in Step 5.
+
+```bash
+# One-time setup: generate an Ed25519 keypair (keep the private key secret)
+./build/hashfile genkey -out keys/key.pem -pub keys/pub.pem
+#   -> prints the base64 public key (save it for goro-config.json)
+
+# Sign the manifest (sign -in rewrites plist.json in place); then check it
+./build/hashfile sign -key keys/key.pem -in plist.json
+./build/hashfile verify -key keys/pub.pem -in plist.json
+#   -> "signature OK"
+```
+
+On Windows use `build\hashfile.exe`. Re-sign the manifest after every edit.
+
 ## Step 5: Configure the Patcher
 
 `goro-config.json` (placed next to the patcher binary):
@@ -130,31 +152,42 @@ The `target` field is the file that gets patched. Use whatever GRF name your ser
 {
   "manifest_url": "https://patches.yourserver.com/plist.json",
   "exe_name": "your-client.exe",
-  "notes_url": "https://patches.yourserver.com/notes.json"
+  "notes_url": "https://patches.yourserver.com/notes.json",
+  "manifest_public_key": "PASTE_BASE64_PUBLIC_KEY_FROM_GENKEY"
 }
 ```
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `manifest_url` | Yes | URL to your `plist.json` |
+| `manifest_url` | Yes | URL to your `plist.json` — for a release build this **must be `https://`** |
 | `exe_name` | Yes | Game executable name |
 | `notes_url` | No | URL to `notes.json` for displaying notes |
+| `manifest_public_key` | Yes* | Base64 Ed25519 public key the manifest must match. **Required** for a release build (it refuses to trust the manifest otherwise). May also be set via the `GORO_PATCHER_PUBKEY` environment variable, which overrides config. |
+
+Alternatively set `GORO_PATCHER_PUBKEY` to the same base64 string.
 
 ## Step 6: Distribute to Players
 
 Package together:
-1. Patcher binary (`GORO-Patcher` or `GORO-Patcher.exe`)
-2. `goro-config.json`
+1. Your **release-built** patcher binary (`GORO-Patcher` or `GORO-Patcher.exe`)
+2. `goro-config.json` — containing `manifest_url` (`https://`) and
+   `manifest_public_key` for your server
 3. Your base GRF file (or let the patcher create it on first run)
 
 Players just run the patcher. It checks for updates, downloads, applies, and enables "Launch Game".
+
+If you distribute a **dev** build instead, it skips the signature check and
+accepts `http://`/`file://` — convenient for testing, but it has no tamper
+protection and must never be given to production players over anything but a
+trusted transport you control.
 
 ## Adding Updates
 
 1. Create new patch file
 2. Calculate hash: `./build/hashfile patch_1.grf`
 3. Add entry to `plist.json` with next `id`
-4. Upload both to your patch server
+4. Re-sign the manifest: `./build/hashfile sign -key keys/key.pem -in plist.json`
+5. Upload the patch and the signed manifest to your patch server
 
 ```json
 {
@@ -175,14 +208,23 @@ Add to manifest:
 ```json
 {
   "patcher_url": "https://patches.yourserver.com/GORO-Patcher.exe",
-  "patcher_hash": "abc123...",
-  "patcher_size": 16376064,
+  "patcher_hash": "<sha256 of the patcher binary, 64 hex>",
+  "patcher_version": 2,
   "patch_base_url": "...",
   "patches": [...]
 }
 ```
 
-Patcher compares its own hash and updates if different.
+| Field | Description |
+|-------|-------------|
+| `patcher_url` | HTTPS URL of the new patcher binary |
+| `patcher_hash` | SHA-256 of that binary (compute with `hashfile sha256`) |
+| `patcher_version` | Version of that binary — must **strictly exceed** the running patcher's `CurrentPatcherVersion` (`src/pkg/engine/version.go`). Same-or-older versions are refused, so the feed cannot force a downgrade. |
+
+The patcher compares its own version/hash and, when a newer signed release is
+offered, downloads, verifies, and replaces itself. Bump `CurrentPatcherVersion`
+in `src/pkg/engine/version.go` and set the same integer here whenever you ship a
+new patcher.
 
 ## Notes (Optional)
 
@@ -264,8 +306,12 @@ The patcher tracks applied patch metadata in `goro-patch.json`. See [PATCH_FORMA
 
 ## Local Testing
 
-Test patches locally before deploying to a remote server. 
+Test patches locally before deploying to a remote server.
 To speed up testing, use local `file://` URLs and absolute paths.
+
+> **This requires a dev build.** A release build allows only `https://` and
+> demands a signed manifest, so use a dev binary (`./scripts/build.sh linux`)
+> for `file://`/`http://` local testing. No signature is needed in dev.
 
 ### Setup
 
@@ -306,7 +352,7 @@ Patches referenced from `data/` subfolder.
     {
       "id": 0,
       "name": "patch_0.grf",
-      "hash": "a2ac70ab8dff9e89",
+      "hash": "GENERATED_HASH_64_HEX",
       "size": 2043,
       "type": "grf",
       "target": "server.grf"
@@ -314,7 +360,7 @@ Patches referenced from `data/` subfolder.
     {
       "id": 1,
       "name": "patch_1.zip",
-      "hash": "45694d77d7281b59",
+      "hash": "GENERATED_HASH_64_HEX",
       "size": 539,
       "type": "raw",
       "target": "server.grf"
@@ -425,6 +471,8 @@ https://go.microsoft.com/fwlink/p/?LinkId=2124703
 | Problem | Solution |
 |---------|----------|
 | "Hash mismatch" | Regenerate hash with `hashfile`, update `plist.json` |
+| Manifest rejected / signature fails (release build) | Re-sign `plist.json` (`hashfile sign -key key.pem -in plist.json`) with the key whose public half is in `manifest_public_key`, or fix `manifest_public_key`; re-upload the signed manifest |
+| Content refused unless `https://` (release build) | Host every URL (`manifest_url`, `patch_base_url`, `patcher_url`, notes) over HTTPS — release builds reject other schemes; use a dev build only for local testing |
 | Stays at "Starting..." | Check `manifest_url` is accessible |
 | "Repair needed" shown | Click Repair — patch files don't match manifest |
 | Files not merging | Ensure `type` is `"grf"` and `target` matches your GRF |

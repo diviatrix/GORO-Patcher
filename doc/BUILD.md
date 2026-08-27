@@ -2,8 +2,10 @@
 
 ## Prerequisites
 
-- Go 1.22+ — https://go.dev/dl/
+- Go 1.25+ — https://go.dev/dl/ (`src/go.mod` requires `go 1.25.0`)
 - Wails v3 CLI: `go install github.com/wailsapp/wails/v3/cmd/wails3@latest`
+  (used to generate frontend bindings and the Windows `.syso`; the binaries
+  themselves are built with plain `go build`)
 
 ### Additional for Linux
 
@@ -65,7 +67,7 @@ Targets:
 Options:
   -c, --clean     Clean build artifacts before building
   -f, --frontend  Regenerate frontend bindings
-  -r, --release   Build a signed release (release build tag)
+  -r, --release   Add the `release` build tag (HTTPS-only + required signature)
   -h, --help      Show help
 ```
 
@@ -83,42 +85,54 @@ runtime, so an attacker cannot flip security hardening back on.
   signature on the manifest. Any other scheme or an unsigned/tampered manifest
   is rejected.
 
+Because the hardened channel cannot be loosened at runtime, a release patcher
+is built **per server** by its admin — there is no generic pre-built release
+binary to download. Each admin runs the release build themselves:
+`./scripts/build.sh --release` (Linux) or `--release windows` / `build.bat -r`
+for the `.exe`, then ships that specific binary together with a
+`goro-config.json` that carries their public key (below).
+
 Before shipping a release, the publisher must:
 
-1. Generate a keypair and set the embedded public key:
+1. Generate a keypair (once; keep the **private** key off-repo, never ship it):
    ```bash
-   cd src && go run ./cmd/hashfile genkey -out keys/key.pem -pub keys/pub.pem
-   # paste the printed base64 public key into
-   # src/pkg/engine/manifest_verify_release.go (manifestPublicKeyBase64)
+   hashfile genkey -out keys/key.pem -pub keys/pub.pem
    ```
-   The **private** key is signed-content custody — keep it off-repo, never ship
-   it. The public key is embedded in the binary and is safe to distribute.
-2. Bump `pkg/engine/version.go` (`CurrentPatcherVersion`) and record the same
-   integer as `patcher_version` in the manifest.
+   `genkey` prints the base64 public key. The public key is **not** embedded in
+   the binary — it is supplied at runtime, next to the patcher, via
+   `manifest_public_key` in `goro-config.json` or the `GORO_PATCHER_PUBKEY`
+   environment variable (which overrides config). In a release build the patcher
+   fails closed when no key is available.
+2. Bump `src/pkg/engine/version.go` (`CurrentPatcherVersion`) and record the
+   same integer as `patcher_version` in the manifest (the self-update rollback
+   gate refuses same/older versions).
 3. Compute the patcher binary's **SHA-256** for `patcher_hash`:
    ```bash
    hashfile sha256 build/GORO-Patcher
    ```
 4. Sign the manifest and re-upload it:
    ```bash
-   hashfile sign -key keys/key.pem -in plist.json -out plist.json
+   hashfile sign -key keys/key.pem -in plist.json
    hashfile verify -key keys/pub.pem -in plist.json
    ```
    In a release build the patcher refuses to run against an unsigned manifest.
 
-All content URLs (`patch_base_url`, `patcher_url`, `news_url`, notes) must be
-`https://` in the config you ship for a release build.
+All content URLs (`patch_base_url`, `patcher_url`, `manifest_url` in
+`goro-config.json`, notes) must be `https://` in the config you ship for a
+release build.
 
 ## Output
 
 Each build produces:
 - `build/GORO-Patcher` (Linux) or `build/GORO-Patcher.exe` (Windows)
-- `build/hashfile` (Linux) or `build/hashfile.exe` (Windows) — hash calculation tool
+- `build/hashfile` (Linux) or `build/hashfile.exe` (Windows) — hash/signing tool
 - `build/goro-config.json.example` — example config
 - `build/public/plist.json.example` — example manifest (copied from `example/`)
 - `build/public/data/` — place patch files here
 
-The `build/` directory is self-contained — copy it to your server as-is.
+To keep a **dev** and a **release** version of each platform, rebuild per
+channel and move the outputs aside (see the example in `build.sh --help`); the
+release build in this repo keeps all four under `build/dist/` as a convenience.
 
 ## Development
 
@@ -143,7 +157,8 @@ GORO-Patcher/
 │   ├── go.mod
 │   ├── frontend/           # UI (HTML/CSS/JS)
 │   ├── pkg/                # Go packages
-│   └── cmd/hashfile/       # Hash tool
+│   ├── cmd/hashfile/       # Hash + Ed25519 signing tool (sha256/genkey/sign/verify)
+│   └── cmd/gen-plist/      # Authors installed-result file_hashes in a manifest
 ├── scripts/                # Build scripts
 │   ├── build.sh            # Linux / cross-compile
 │   ├── build.bat           # Windows native
